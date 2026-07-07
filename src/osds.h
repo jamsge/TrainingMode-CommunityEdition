@@ -1,7 +1,28 @@
 #ifndef OSDS_H
 #define OSDS_H
+#include "../MexTK/mex.h"
+#include "events.h"
 
 void OSD_Think(GOBJ *event);
+
+#define FAILFRAMES  7
+typedef struct OSD_WavedashData {
+    int timer;
+    int airdodge_frame;
+    int short_hop;
+    float angle_real;
+    float angle_raw;
+} OSD_WavedashData;
+OSD_WavedashData wavedash_osd_data = {
+    .timer = -1,
+    .airdodge_frame = -1,
+    .short_hop = 0,
+};
+GXColor text_gold = {255, 211, 0, 255};
+GXColor text_red = {255, 0, 0, 255};
+GXColor text_white = {255, 255, 255, 255};
+GXColor text_green = {0, 255, 0, 255};
+
 
 // OSD IDs
 // Mirrored in Globals.s!!
@@ -36,4 +57,3 @@ void OSD_Think(GOBJ *event);
 #define OSD_FighterSpecificTechAlt 64
 
 #endif
-

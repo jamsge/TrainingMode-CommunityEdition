@@ -1,6 +1,5 @@
-#include "../MexTK/mex.h"
-#include "events.h"
 #include "osds.h"
+
 
 static void UpdateIASATracking(GOBJ *ft) {
     FighterData *ft_data = ft->userdata;
@@ -30,19 +29,19 @@ static void RunOSD_FrameAdvantage(GOBJ *ft, GOBJ *ft_sub) {
             the advantage is the # frames until shieldstun is gone.
         If the attacker is actionable and the defender is also actionable,
             the advantages is -frames since shieldstun.
-    
+
     We use the 0 state to wait for GuardSetOff to start.
     We use the -1 state to wait for GuardSetOff to end.
     */
 
     FighterData *ft_data = ft->userdata;
     FighterData *ft_def_data = ft_data->TM.fighter_hurt_shield;
-    if (ft_def_data == 0) return; 
+    if (ft_def_data == 0) return;
     GOBJ *ft_def = ft_def_data->fighter;
 
     int ply = ft_data->ply;
     static int atk_hit_state[6] = {0};
-    
+
     // Wait for GuardSetOff to end before running frame advantage code again
     if (atk_hit_state[ply] == -1) {
         if (ft_def_data->state_id != ASID_GUARDSETOFF)
@@ -58,7 +57,7 @@ static void RunOSD_FrameAdvantage(GOBJ *ft, GOBJ *ft_sub) {
     }
 
     int atk_state = ft_data->state_id;
-    
+
     // "actionable" if either state changed or in iasa, and not in aerial or ac landing lag.
     bool atk_actionable = (atk_hit_state[ply] != atk_state || CheckIASA(ft_data))
         && (atk_state != ASID_LANDING || ft_data->state.frame >= ft_data->attr.normal_landing_lag)
@@ -66,7 +65,7 @@ static void RunOSD_FrameAdvantage(GOBJ *ft, GOBJ *ft_sub) {
 
     if (atk_actionable) {
         int advantage;
-    
+
         if (ft_def_data->state_id == ASID_GUARDSETOFF) {
             // + on shield: advantage is frames until shieldstun is gone.
             float anim_speed = ft_def_data->state.rate;
@@ -95,6 +94,99 @@ static void RunOSD_FrameAdvantage(GOBJ *ft, GOBJ *ft_sub) {
     }
 }
 
+static void RunOSD_Wavedash(GOBJ *ft, GOBJ *ft_sub) {
+    FighterData *ft_data = ft->userdata;
+    OSD_WavedashData *osd_data = &wavedash_osd_data;
+    // start sequence on jump squat
+    if (ft_data->state_id == ASID_KNEEBEND && ft_data->TM.state_frame == 0)
+    {
+        osd_data->timer = 0;
+        osd_data->airdodge_frame = -1;
+    }
+
+    // do nothing if sequence hasn't started
+    if (osd_data->timer < 0)
+        return;
+
+    // run sequence logic
+    osd_data->timer++;
+
+    // The game tracks whether the current jump is going to be a short hop in
+    // `state_var1`. The value at the end of kneebend is what we want.
+    if (ft_data->state_id == ASID_KNEEBEND)
+        osd_data->short_hop = ft_data->state_var.state_var1;
+
+    // Record early airdodge timings. May be overwritten by a later successful
+    // timing in case player uses multiple presses.
+    if (ft_data->input.down & (PAD_TRIGGER_L | PAD_TRIGGER_R) &&
+            ft_data->state_id == ASID_KNEEBEND)
+        osd_data->airdodge_frame = osd_data->timer;
+
+    // real airdodge
+    if (ft_data->TM.state_frame == 0 &&
+            (ft_data->state_id == ASID_ESCAPEAIR ||
+            (ft_data->state_id == ASID_LANDINGFALLSPECIAL &&
+             ft_data->TM.state_prev[0] == ASID_ESCAPEAIR &&
+             ft_data->TM.state_prev_frames[0] == 0)))
+    {
+        osd_data->airdodge_frame = osd_data->timer;
+        Vec2 lstick = ft_data->input.lstick;
+        osd_data->angle_real = -atan2(lstick.Y, fabs(lstick.X)) / M_1DEGREE;
+
+        PADStatus *stat = PadGetRaw(0);
+        osd_data->angle_raw = -atan2(stat->stickY, fabs(stat->stickX)) / M_1DEGREE;
+    }
+
+    if (ft_data->TM.state_frame >= FAILFRAMES &&
+             osd_data->airdodge_frame > 0 &&
+            (ft_data->state_id == ASID_JUMPF ||
+             ft_data->state_id == ASID_JUMPB ||
+             ft_data->state_id == ASID_ESCAPEAIR)) {
+        // failure
+        return;
+    }
+    else if (ft_data->state_id == ASID_KNEEBEND ||
+              (ft_data->TM.state_frame < FAILFRAMES &&
+              (ft_data->state_id == ASID_JUMPF ||
+               ft_data->state_id == ASID_JUMPB ||
+               ft_data->state_id == ASID_ESCAPEAIR))) {
+        // in progress
+        return;
+    }
+
+    // Reset
+    osd_data->timer = -1;
+
+    // Wavedash not attempted
+    if (osd_data->airdodge_frame < 0)
+        return;
+
+    int timing = osd_data->airdodge_frame - (int)ft_data->attr.jump_startup_time - 1;
+
+    GOBJ *Message_GOBJ = Message_Display(
+        OSD_Wavedash, ft_data->ply,
+        MSGCOLOR_WHITE,
+        "WD Frame: %df\nAngle: %.1f\n%s",
+        timing,
+        osd_data->angle_real,
+        osd_data->short_hop ? "Short Hop" : "Full Hop"
+    );
+
+    GXColor *color = &text_white;
+    MsgData *msg_data = Message_GOBJ->userdata;
+    if (timing == 0)
+        color = &text_green;
+    Text_SetColor(msg_data->text, 0, color);
+
+    if (osd_data->angle_real <= 23.7f && osd_data->angle_real>=16.8)
+        color = &text_gold;
+    else if (osd_data->angle_real <= 30.5)
+        color = &text_green;
+    else
+        color = &text_white;
+    Text_SetColor(msg_data->text, 1, color);
+}
+
 void OSD_Think(GOBJ *event) {
     u32 osd_enabled = stc_memcard->TM_OSDEnabled;
 
@@ -104,10 +196,11 @@ void OSD_Think(GOBJ *event) {
 
         // subchar is usually null except for nana and the inactive sheik/zelda tform
         GOBJ *ft_sub = Fighter_GetSubcharGObj(ply, 1);
-        
+
         if (ft) UpdateIASATracking(ft);
         if (ft_sub) UpdateIASATracking(ft_sub);
 
         if (osd_enabled & (1u << OSD_FrameAdvantage)) RunOSD_FrameAdvantage(ft, ft_sub);
+        if (osd_enabled & (1u << OSD_Wavedash)) RunOSD_Wavedash(ft, ft_sub);
     }
 }
