@@ -4,11 +4,17 @@
 static EventMenu Menu_Main;
 static EventMenu Menu_Chances;
 
+static Vec3 saved_cam_pos;
+static Vec3 saved_cam_rot;
+
 static void Exit(GOBJ *menu);
 static void StartMoveCPU(GOBJ *menu);
 static void FinishMoveCPU(GOBJ *menu);
 static void StartMoveHMN(GOBJ *menu);
 static void FinishMoveHMN(GOBJ *menu);
+static void StartMoveCam(GOBJ *menu);
+static void FinishMoveCam(GOBJ *menu);
+static void ChangeCam(GOBJ *menu_gobj, int _new_val);
 static void ChangeTechInPlaceChance (GOBJ *menu_gobj, int _new_val);
 static void ChangeTechAwayChance    (GOBJ *menu_gobj, int _new_val);
 static void ChangeTechTowardChance  (GOBJ *menu_gobj, int _new_val);
@@ -55,11 +61,31 @@ static const EventOption Option_FinishMoveHMN = {
     .OnSelect = FinishMoveHMN,
 };
 
+static const EventOption Option_MoveCam = {
+    .kind = OPTKIND_FUNC,
+    .name = "Move Camera",
+    .desc = {"Adjust the advanced camera's behavior.",
+             "Use C-Stick while holding",
+             "A/B/Y to pan, rotate and zoom, respectively."},
+    .OnSelect = StartMoveCam,
+    .disable = true
+};
+
+static const EventOption Option_FinishMoveCam = {
+    .kind = OPTKIND_FUNC,
+    .name = "Finish Moving Camera",
+    .desc = {"Finish setting the camera position.",
+             "Use C-Stick while holding",
+             "A/B/Y to pan, rotate and zoom, respectively."},
+    .OnSelect = FinishMoveCam
+};
+
 static float GameSpeeds[] = {1.f, 5.f/6.f, 2.f/3.f, 1.f/2.f, 1.f/4.f};
 static const char *Options_GameSpeedText[] = {"1", "5/6", "2/3", "1/2", "1/4"};
 
 static const char *Options_Reset[] = {"Fast", "Slow", "None"};
 static int ResetDurations[] = { 30, 60, 2147483647 };
+static const char *Options_CamMode[] = {"Normal", "Zoom", "Advanced"};
 
 enum {
     OPT_CHANCE_MENU,
@@ -70,6 +96,8 @@ enum {
     OPT_SPEED,
     OPT_MOVE_CPU,
     OPT_MOVE_HMN,
+    OPT_CAM,
+    OPT_MOVE_CAM,
     OPT_EXIT,
 
     OPT_COUNT
@@ -117,6 +145,15 @@ static EventOption Options_Main[] = {
     Option_MoveCPU,
     Option_MoveHMN,
     {
+        .kind = OPTKIND_STRING,
+        .name = "Camera Mode",
+        .desc = {"Choose what camera type to use."},
+        .values = Options_CamMode,
+        .value_num = countof(Options_CamMode),
+        .OnChange = ChangeCam
+    },
+    Option_MoveCam,
+    {
         .kind = OPTKIND_FUNC,
         .name = "Exit",
         .desc = {"Return to the Event Select Screen."},
@@ -144,6 +181,14 @@ enum {
     OPTCHANCE_GETUPATTACK,
 
     OPTCHANCE_COUNT
+};
+
+enum {
+    OPTCAM_NORMAL,
+    OPTCAM_ZOOM,
+    OPTCAM_ADVANCED,
+
+    OPTCAM_COUNT
 };
 
 static EventOption Options_Chances[] = {
@@ -429,7 +474,17 @@ void Event_Think(GOBJ *menu) {
     
         return;
     }
-    
+
+    // move Camera
+    else if (Options_Main[OPT_MOVE_CAM].name == Option_FinishMoveCam.name) {
+        return;
+    }
+
+    if (Options_Main[OPT_CAM].val == OPTCAM_ADVANCED && Options_Main[OPT_MOVE_CAM].name == Option_MoveCam.name){
+        stc_matchcam->devcam_pos = saved_cam_pos;
+        stc_matchcam->devcam_rot = saved_cam_rot;
+    }
+
     cpu_data->cpu.ai = 15;
     cpu_data->cpu.held = 0;
     cpu_data->cpu.lstickX = 0;
@@ -726,15 +781,19 @@ static void EnableHmnControl(void) {
 static void StartMoveCPU(GOBJ *menu) {
     DisableHmnControl();
     Reset();
-    Options_Main[OPT_MOVE_CPU] = Option_FinishMoveCPU; 
+    Options_Main[OPT_MOVE_CPU] = Option_FinishMoveCPU;
     Options_Main[OPT_MOVE_HMN].disable = true;
+    Options_Main[OPT_MOVE_CAM].disable = true;
+    Options_Main[OPT_CAM].disable = true;
 }
 
 static void FinishMoveCPU(GOBJ *menu) {
     EnableHmnControl();
     Reset();
-    Options_Main[OPT_MOVE_CPU] = Option_MoveCPU; 
+    Options_Main[OPT_MOVE_CPU] = Option_MoveCPU;
     Options_Main[OPT_MOVE_HMN].disable = false;
+    Options_Main[OPT_MOVE_CAM].disable = false;
+    Options_Main[OPT_CAM].disable = false;
 }
 
 static void StartMoveHMN(GOBJ *menu) {
@@ -742,6 +801,8 @@ static void StartMoveHMN(GOBJ *menu) {
     Reset();
     Options_Main[OPT_MOVE_HMN] = Option_FinishMoveHMN; 
     Options_Main[OPT_MOVE_CPU].disable = true;
+    Options_Main[OPT_MOVE_CAM].disable = true;
+    Options_Main[OPT_CAM].disable = true;
 }
 
 static void FinishMoveHMN(GOBJ *menu) {
@@ -749,4 +810,44 @@ static void FinishMoveHMN(GOBJ *menu) {
     Reset();
     Options_Main[OPT_MOVE_HMN] = Option_MoveHMN; 
     Options_Main[OPT_MOVE_CPU].disable = false;
+    Options_Main[OPT_MOVE_CAM].disable = false;
+    Options_Main[OPT_MOVE_CAM].disable = Options_Main[OPT_CAM].val != OPTCAM_ADVANCED;
+}
+
+static void StartMoveCam(GOBJ *menu) {
+    DisableHmnControl();
+    Reset();
+    Options_Main[OPT_MOVE_CAM] = Option_FinishMoveCam;
+    Options_Main[OPT_MOVE_HMN].disable = true;
+    Options_Main[OPT_MOVE_CPU].disable = true;
+    Options_Main[OPT_MOVE_CAM].disable = Options_Main[OPT_CAM].val != OPTCAM_ADVANCED;
+}
+
+static void FinishMoveCam(GOBJ *menu) {
+    saved_cam_pos = stc_matchcam->devcam_pos;
+    saved_cam_rot = stc_matchcam->devcam_rot;
+    EnableHmnControl();
+    Reset();
+    Options_Main[OPT_MOVE_CAM] = Option_MoveCam;
+    Options_Main[OPT_MOVE_HMN].disable = false;
+    Options_Main[OPT_MOVE_CPU].disable = false;
+    Options_Main[OPT_MOVE_CAM].disable = Options_Main[OPT_CAM].val != OPTCAM_ADVANCED;
+}
+
+static void ChangeCam(GOBJ *menu_gobj, int value) {
+    Options_Main[OPT_MOVE_CAM].disable = value != OPTCAM_ADVANCED;
+    if (value == OPTCAM_NORMAL){
+        Match_SetNormalCamera();
+    }
+    else if (value == OPTCAM_ZOOM){
+        Match_SetFreeCamera(0, 3);
+        stc_matchcam->freecam_fov.X = 140;
+        stc_matchcam->freecam_rotate.Y = 10;
+    }
+    else if (value == OPTCAM_ADVANCED){
+        Match_SetDevelopCamera();
+        saved_cam_pos = stc_matchcam->devcam_pos;
+        saved_cam_rot = stc_matchcam->devcam_rot;
+    }
+    Match_CorrectCamera();
 }
