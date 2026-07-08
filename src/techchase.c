@@ -792,8 +792,10 @@ static void FinishMoveCPU(GOBJ *menu) {
     Reset();
     Options_Main[OPT_MOVE_CPU] = Option_MoveCPU;
     Options_Main[OPT_MOVE_HMN].disable = false;
-    Options_Main[OPT_MOVE_CAM].disable = false;
     Options_Main[OPT_CAM].disable = false;
+    if (Options_Main[OPT_CAM].val == OPTCAM_ADVANCED){
+        Options_Main[OPT_MOVE_CAM].disable = false;
+    }
 }
 
 static void StartMoveHMN(GOBJ *menu) {
@@ -810,8 +812,10 @@ static void FinishMoveHMN(GOBJ *menu) {
     Reset();
     Options_Main[OPT_MOVE_HMN] = Option_MoveHMN; 
     Options_Main[OPT_MOVE_CPU].disable = false;
-    Options_Main[OPT_MOVE_CAM].disable = false;
-    Options_Main[OPT_MOVE_CAM].disable = Options_Main[OPT_CAM].val != OPTCAM_ADVANCED;
+    Options_Main[OPT_CAM].disable = false;
+    if (Options_Main[OPT_CAM].val == OPTCAM_ADVANCED){
+        Options_Main[OPT_MOVE_CAM].disable = false;
+    }
 }
 
 static void StartMoveCam(GOBJ *menu) {
@@ -820,7 +824,7 @@ static void StartMoveCam(GOBJ *menu) {
     Options_Main[OPT_MOVE_CAM] = Option_FinishMoveCam;
     Options_Main[OPT_MOVE_HMN].disable = true;
     Options_Main[OPT_MOVE_CPU].disable = true;
-    Options_Main[OPT_MOVE_CAM].disable = Options_Main[OPT_CAM].val != OPTCAM_ADVANCED;
+    Options_Main[OPT_CAM].disable = true;
 }
 
 static void FinishMoveCam(GOBJ *menu) {
@@ -829,9 +833,10 @@ static void FinishMoveCam(GOBJ *menu) {
     EnableHmnControl();
     Reset();
     Options_Main[OPT_MOVE_CAM] = Option_MoveCam;
+    Options_Main[OPT_MOVE_CAM].disable = false;
     Options_Main[OPT_MOVE_HMN].disable = false;
     Options_Main[OPT_MOVE_CPU].disable = false;
-    Options_Main[OPT_MOVE_CAM].disable = Options_Main[OPT_CAM].val != OPTCAM_ADVANCED;
+    Options_Main[OPT_CAM].disable = false;
 }
 
 static void ChangeCam(GOBJ *menu_gobj, int value) {
