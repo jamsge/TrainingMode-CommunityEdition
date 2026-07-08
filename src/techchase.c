@@ -63,8 +63,8 @@ static const EventOption Option_FinishMoveHMN = {
 
 static const EventOption Option_MoveCam = {
     .kind = OPTKIND_FUNC,
-    .name = "Move Camera",
-    .desc = {"Adjust the advanced camera's behavior.",
+    .name = "Set Custom Camera",
+    .desc = {"Adjust the custom camera's behavior.",
              "Use C-Stick while holding",
              "A/B/Y to pan, rotate and zoom, respectively."},
     .OnSelect = StartMoveCam,
@@ -85,7 +85,7 @@ static const char *Options_GameSpeedText[] = {"1", "5/6", "2/3", "1/2", "1/4"};
 
 static const char *Options_Reset[] = {"Fast", "Slow", "None"};
 static int ResetDurations[] = { 30, 60, 2147483647 };
-static const char *Options_CamMode[] = {"Normal", "Zoom", "Advanced"};
+static const char *Options_CamMode[] = {"Normal", "Zoom", "Custom"};
 
 enum {
     OPT_CHANCE_MENU,
@@ -186,7 +186,7 @@ enum {
 enum {
     OPTCAM_NORMAL,
     OPTCAM_ZOOM,
-    OPTCAM_ADVANCED,
+    OPTCAM_CUSTOM,
 
     OPTCAM_COUNT
 };
@@ -480,7 +480,7 @@ void Event_Think(GOBJ *menu) {
         return;
     }
 
-    if (Options_Main[OPT_CAM].val == OPTCAM_ADVANCED && Options_Main[OPT_MOVE_CAM].name == Option_MoveCam.name){
+    if (Options_Main[OPT_CAM].val == OPTCAM_CUSTOM && Options_Main[OPT_MOVE_CAM].name == Option_MoveCam.name){
         stc_matchcam->devcam_pos = saved_cam_pos;
         stc_matchcam->devcam_rot = saved_cam_rot;
     }
@@ -793,7 +793,7 @@ static void FinishMoveCPU(GOBJ *menu) {
     Options_Main[OPT_MOVE_CPU] = Option_MoveCPU;
     Options_Main[OPT_MOVE_HMN].disable = false;
     Options_Main[OPT_CAM].disable = false;
-    if (Options_Main[OPT_CAM].val == OPTCAM_ADVANCED){
+    if (Options_Main[OPT_CAM].val == OPTCAM_CUSTOM){
         Options_Main[OPT_MOVE_CAM].disable = false;
     }
 }
@@ -813,7 +813,7 @@ static void FinishMoveHMN(GOBJ *menu) {
     Options_Main[OPT_MOVE_HMN] = Option_MoveHMN; 
     Options_Main[OPT_MOVE_CPU].disable = false;
     Options_Main[OPT_CAM].disable = false;
-    if (Options_Main[OPT_CAM].val == OPTCAM_ADVANCED){
+    if (Options_Main[OPT_CAM].val == OPTCAM_CUSTOM){
         Options_Main[OPT_MOVE_CAM].disable = false;
     }
 }
@@ -840,7 +840,7 @@ static void FinishMoveCam(GOBJ *menu) {
 }
 
 static void ChangeCam(GOBJ *menu_gobj, int value) {
-    Options_Main[OPT_MOVE_CAM].disable = value != OPTCAM_ADVANCED;
+    Options_Main[OPT_MOVE_CAM].disable = value != OPTCAM_CUSTOM;
     if (value == OPTCAM_NORMAL){
         Match_SetNormalCamera();
     }
@@ -849,7 +849,7 @@ static void ChangeCam(GOBJ *menu_gobj, int value) {
         stc_matchcam->freecam_fov.X = 140;
         stc_matchcam->freecam_rotate.Y = 10;
     }
-    else if (value == OPTCAM_ADVANCED){
+    else if (value == OPTCAM_CUSTOM){
         Match_SetDevelopCamera();
         saved_cam_pos = stc_matchcam->devcam_pos;
         saved_cam_rot = stc_matchcam->devcam_rot;
