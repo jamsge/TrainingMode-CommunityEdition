@@ -5,8 +5,12 @@ I really appreciate all the help.
 Melee is a pretty complicated game, but that doesn't make TM-CE hard to contribute to!
 Here are a few things you should know before contributing.
 
-First thing, [please join the discord](https://discord.gg/2Khb8CVP7A).
-If you have any questions, feel free to ping me (Aitch) in the dev-discussion channel.
+- [Join the discord here](https://discord.gg/2Khb8CVP7A).
+- Ping me in the dev-discussion channel before starting a contribution, I will guide you in the right direction.
+- Keep contributions small and focused.
+- Do not contribute AI code.
+
+If you have any other questions, feel free to ping me (Aitch) in the dev-discussion channel.
 
 ## Compilation
 
@@ -22,6 +26,13 @@ If you have any questions, feel free to ping me (Aitch) in the dev-discussion ch
     - If the provided binaries fail (possibly due to libc issues), you can compile your own binaries from my repos:
 [gc_fst](https://github.com/AlexanderHarrison/gc_fst), [hmex](https://github.com/AlexanderHarrison/cdat), [hgecko](https://github.com/AlexanderHarrison/hgecko)
 
+### NixOS
+1. Make sure you have the [Flakes](https://nixos.wiki/wiki/Flakes) feature enabled.
+2. Enter the development shell by running `nix develop` to load all the necessary dependencies.
+3. Run the command `./build.sh path-to-melee.iso` in the console.
+
+Alternatively, if you have [Direnv](https://nixos.wiki/wiki/Direnv) installed, you can run `direnv allow` to enter the development shell automatically when you enter this project directory.
+
 ### Build Mode
 The build script takes an optional additional mode argument called the mode - `build.sh iso [mode]`.
 This allows building an optimized release, or fine-grained recompilation.
@@ -32,11 +43,11 @@ Examples:
 - `build.sh iso build/edgeguard.dat`: only rebuild edgeguard event. You can use any dat file here.
 
 ## Project Structure
-There are four important directories to know about:
+There are a few important directories to know about:
 1. `src/`: this directory contains the source for the C events, as well as some setup code for the event in `events.c`.
 2. `MexTK/`:
     - The `include/` subdirectory contains headers for internal melee functions. Calling these will call native ssbm code.
-    - The `MexTK` binary is the compiler executable, which takes in C source and spits out a dat file.
+    - The `melee.link` file maps native melee symbols to addresses.
     - The `.txt` files contain symbols that we want called by the m-ex system.
         For example, C events will want their `Event_Init` and `Event_Think` functions called.
         We only use the evFunction and cssFunction modes.
@@ -47,6 +58,10 @@ The `.asm` files will be injected and run, while the `.s` files contain include 
 4. `dats/`: The dat file format is used by SSBM for storing data, such as models and animations.
 This directory contains HUD models and animations for events.
 You will need to use [HSDRawViewer](https://github.com/Ploaj/HSDLib) to view these.
+5. `bin/`: This directory contains binaries used in compilation.
+    - `hgecko` is a reimplementation of Fizzi's `gecko` tool for better performance. This compiles asm files into gecko codes.
+    - `hmex` is a reimplementation of Ploaj's `MexTK` tool for better performance. This compiles C code into DLLs run by m-ex.
+    - `gc_fst` allows modifying the ISO filesystem.
 
 ## Melee Stuff
 
@@ -98,11 +113,14 @@ You'll need to right click on the node -> Open As -> JOBJ in HSDRaw in order to 
     - Add the required compilation steps in `build.sh`. Follow the same structure as the other events. You can skip the dat copy if you don't have any models attached to the event (you won't), like the powershield event.
 Poke around the other events to figure out how to implement these.
 The powershield event is the simplest and easiest to learn from.
-- If you want to create a new OSD (hard):
-    - You will need to know a lot of Power PC asm.
-    - You will need to find the function that does the processing of the value you want to measure (reach out to me if you're not sure how to find this).
-    - Create and write an asm file for the new OSD in `ASM/training-mode/Onscreen Display/`.
+- If you want to create a new OSD (simple-ish):
+    - Add your function logic to `src/osds.c`.
     - Add the OSD to the OSD list in `ASM/training-mode/Globals.s`. OSD ids are weird, I don't know exactly how to do this.
+    - Add your OSD to the corresponding slot in `ASM/training-mode/Onscreen Display/Toggle UI/Load Alt Text When Loaded With L.asm`.
+- If you want to draw graphics (easy):
+    - Use the `GFX_Start` and `GFX_AddVtx` functions. Search around to see the specific usage.
+    - You can use the `HUD_*` functions for higher level drawing.
+    - Drawing from ASM is currently difficult. Check out `ASM/.../Custom ESS Button Actions.asm` for a possible method.
 
 ## Debugging Tips
 - Development builds enable logging! Call `TMLOG(...)` to print to the dolphin console and the onscreen console. L/R+Z toggles console visibility.

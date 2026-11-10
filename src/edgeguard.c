@@ -8,6 +8,7 @@
 #define RESET_DELAY 30
 
 static int reset_timer = -1;
+static int edgeguard_timer = 0;
 EventMenu *Event_Menu = &Menu_Main;
 
 static void UpdatePosition(GOBJ *fighter) {
@@ -104,10 +105,6 @@ static void Reset_HMN(GOBJ *hmn, int side_idx, int dmg) {
     hmn_data->script.script_event_timer = 0;
     Fighter_SubactionFastForward(hmn);
 
-    // ensure the player L-cancels the initial bair.
-    hmn_data->flags.is_fastfall = 1;
-    hmn_data->input.timer_trigger_any_ignore_hitlag = 0;
-    
     Fighter_UpdateStateFrameInfo(hmn);
     Fighter_HitboxDisableAll(hmn);
     hmn_data->script.script_current = 0;
@@ -179,6 +176,7 @@ static void Reset_CPU(GOBJ *cpu, int side_idx, int dmg, float kb_mag, float kb_a
 
 static void Reset(void) {
     event_vars->Savestate_Load_v1(event_vars->savestate, Savestate_Silent);
+    edgeguard_timer = 0;
 
     for (int ply = 0; ply < 2; ++ply) {
         MatchHUDElement *hud = &stc_matchhud->element_data[ply];
@@ -305,6 +303,16 @@ void Event_Think(GOBJ *menu) {
         reset_timer = -1;
         Reset();
     }
+    
+    if (edgeguard_timer < 10) {
+        // Ensure the player L-cancels the initial bair.
+        //
+        // We can't set this in reset because most characters need to L-Cancel later than the reset frame.
+        // Not really a good solution other than a timer.
+        hmn_data->flags.is_fastfall = 1;
+        hmn_data->input.timer_trigger_any_ignore_hitlag = 0;
+    }
+    edgeguard_timer++;
     
     Vec2 cpu_pos = { cpu_data->phys.pos.X, cpu_data->phys.pos.Y };
     

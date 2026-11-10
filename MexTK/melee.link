@@ -5,6 +5,7 @@
 8008cfac:Fighter_EnterAerial
 80068E98:Fighter_Create
 800BE7E0:Fighter_Create2
+8008c3e0:FSmash_GetASForAnalogAngle
 800693AC:ActionStateChange
 8006f190:FrameSpeedChange
 8036410C:AOBJ_ReqAnim
@@ -25,8 +26,6 @@
 803230A4:blr2
 8021B2D8:bp
 803D706C:calloc
-804DD84C:PRIM_NEW_INTERNAL
-804DD848:PRIM_CLOSE
 80029020:CameraSubject_Alloc
 800290D4:CameraSubject_Destroy
 80355F34:CARDCheckAsync
@@ -88,6 +87,7 @@
 80041EE4:Coll_InitECB
 8004220C:Coll_SetECBScale
 8004CA6C:Coll_GetCurrGroundsFrictionMult
+80084280:EnvironmentCollision_WaitLanding
 8004CAA0:Collision_CheckCeilingCollision
 8004CB78:Collision_CheckGroundCollision
 8004CB30:Collision_CheckLeftWallCollision
@@ -181,6 +181,7 @@
 8006C80C:Fighter_UpdateGFX
 8007AE80:Fighter_UpdateAllHitboxPos
 800865D8:Fighter_GetLeftStick
+8007F804:Fighter_GetMtxPtr
 8007D508:Fighter_AddClampYPosition
 8007D3A8:Fighter_AllowXDrift
 8007B760:Fighter_ApplyIntang
@@ -305,6 +306,7 @@
 80075650:Fighter_IndexFtPartsDObjs
 80068354:Fighter_InitData
 800867E8:Fighter_InitInputs
+80068854:Fighter_InitInputTimers
 8007487C:Fighter_InitFtPartsModel
 80074148:Fighter_InitPObj
 80074170:Fighter_InitPObj2
@@ -485,6 +487,7 @@
 8022F0F0:GObj_DestroyByPLink
 8022F138:GObj_DestroyByPLinkRange
 80390CFC:GObj_UpdateAll
+8000805C:LbColl_IsHitboxHittingHurtbox
 80054ED8:GrColl_CheckIfLineEnabled
 80056C54:GrColl_CrawlGround
 80044164:GrColl_SearchLedgeLeft
@@ -534,7 +537,7 @@
 8033E55C:GXSetNumChans
 8033E5A8:GXSetChanCtrl
 8033FDC4:GXSetTevOp
-80340518:GX_blr
+80340518:GXSetTevClampMode
 8034051C:GXSetAlphaCompare
 803405F0:GXSetTevOrder
 803401EC:GXSetTevColor
@@ -591,6 +594,7 @@
 801A3A74:HSD_PadRenewUpdateStruct2
 8036C244:HSD_ClearVtxDesc
 803620A4:HSD_SetupChannel
+8036199C:HSD_SetupRenderMode
 80361D6C:HSD_StateSetColorUpdate
 80361DC0:HSD_StateSetAlphaUpdate
 80361E14:HSD_StateSetDstAlpha
@@ -792,6 +796,7 @@
 8031C99C:Match_GetVIWaitFilename
 8016B350:MatchInfo_0x0010_store
 8037E708:MatToQuat
+8001cc84:Memcard_SaveIfChanged
 8001B6F8:Memcard_CheckStatus
 8001BB48:Memcard_ReqSaveCreate
 8001BF04:Memcard_ReqSaveLoad

@@ -179,6 +179,7 @@ MultishineLoad:
     blrl
 
     backup
+    rtocbl r12, TM_StartOSDs
 
     # Schedule Think
     bl MultishineThink
@@ -302,6 +303,7 @@ ReactionLoad:
     blrl
 
     backup
+    rtocbl r12, TM_StartOSDs
 
     # Schedule Think
     bl ReactionThink
@@ -567,6 +569,7 @@ LedgeStallLoad:
     blrl
 
     backup
+    rtocbl r12, TM_StartOSDs
 
     # Schedule Think
     bl LedgeStallThink
@@ -1109,6 +1112,7 @@ SDITrainingLoad:
     blrl
 
     backup
+    rtocbl r12, TM_StartOSDs
 
     bl InitializeHighScore
 
@@ -1587,6 +1591,7 @@ ReversalLoad:
     blrl
 
     backup
+    rtocbl r12, TM_StartOSDs
 
     # Schedule Think
     bl ReversalThink
@@ -2368,6 +2373,7 @@ ShieldDropLoad:
     blrl
 
     backup
+    rtocbl r12, TM_StartOSDs
 
     # Schedule Think
     bl ShieldDropThink
@@ -2619,6 +2625,7 @@ AttackOnShieldLoad:
     blrl
 
     backup
+    rtocbl r12, TM_StartOSDs
 
     # Schedule Think
     bl AttackOnShieldThink
@@ -3036,6 +3043,7 @@ LedgetechLoad:
     blrl
 
     backup
+    rtocbl r12, TM_StartOSDs
 
     bl InitializeHighScore
 
@@ -3549,6 +3557,7 @@ AmsahTechLoad:
     blrl
 
     backup
+    rtocbl r12, TM_StartOSDs
 
     # Schedule Think
     bl AmsahTechThink
@@ -3942,6 +3951,7 @@ ComboTrainingLoad:
     blrl
 
     backup
+    rtocbl r12, TM_StartOSDs
 
     # Schedule Think
     bl ComboTrainingThink
@@ -5675,6 +5685,7 @@ WaveshineSDILoad:
     blrl
 
     backup
+    rtocbl r12, TM_StartOSDs
 
     # Schedule Think
     bl WaveshineSDIThink
@@ -6133,6 +6144,7 @@ SlideOffLoad:
     blrl
 
     backup
+    rtocbl r12, TM_StartOSDs
 
     # Schedule Think
     bl SlideOffThink
@@ -6756,6 +6768,7 @@ GrabMashOutLoad:
     blrl
 
     backup
+    rtocbl r12, TM_StartOSDs
 
     # Schedule Think
     bl GrabMashOutThink
@@ -7098,6 +7111,7 @@ LedgetechCounterLoad:
     blrl
 
     backup
+    rtocbl r12, TM_StartOSDs
 
     # Schedule Think
     bl LedgetechCounterThink
@@ -7232,6 +7246,10 @@ LedgetechCounterThink_Recovering:
     b LedgetechCounterThink_CheckForTimer
 
 LedgetechCounterThink_Recovering_CheckDistanceAndInputDownB:
+    # Check Action State
+    lwz r3, 0x10(P1Data)
+    cmpwi r3, 356
+    bne LedgetechCounterThink_CheckForTimer
     # Check P1s Distance from Marth
     addi r3, P1Data, 0xB0
     addi r4, P2Data, 0xB0
@@ -7538,7 +7556,7 @@ LedgetechCounter_DetermineTechInputTimingMessageCategory_Exit:
 ######
 LedgetechCounter_Constants:
     blrl
-    .float 33                                           # Mm away from fox to init counter
+    .float 40                                           # Mm away from fox to init counter
     .float 5                                            # Mm to move marth forward after placing on ledge
     .float -15                                          # Mm to move spacies down after placing in the air
 
@@ -7677,6 +7695,7 @@ EscapeSheikLoad:
     blrl
 
     backup
+    rtocbl r12, TM_StartOSDs
 
     # Schedule Think
     bl EscapeSheikThink
@@ -10521,6 +10540,11 @@ MoveCPU:
     load r3, InputStructStart
     mulli r0, r4, 68
     add r5, r0, r3
+
+    # Ensure HMN In Wait
+    lwz r4, 0x10(P1Data)
+    cmpwi r4, ASID_Wait
+    bne MoveCPUExit
 
     # Check DPad Down
     lwz r3, 0xC(r5)

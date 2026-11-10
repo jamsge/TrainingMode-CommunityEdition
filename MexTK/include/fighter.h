@@ -2816,7 +2816,7 @@ struct FighterData
         u16 can_fastfall_frames;   // 0x2418, how many frames the fighter has been able to fast fall
         u16 iasa_frames;           // 0x241a, Aitch: added this for use in lab overlays
         int post_hitstun_frames;   // 0x241c, frames fighter has been out of hitstun
-        GOBJ *fighter_hurt_shield; // 0x2420, pointer to the fighter who's shield this fighter hit
+        FighterData *fighter_hurt_shield; // 0x2420, pointer to the fighter who's shield this fighter hit
         void *cb_anim;             // 0x2424, additional animation callback
 
         union {
@@ -3362,6 +3362,7 @@ void Fighter_HitboxDisableAll(GOBJ *fighter);
 int Fighter_CountPlayers();
 void Fighter_InitData(GOBJ *f);
 void Fighter_InitInputs(GOBJ *fighter);
+void Fighter_InitInputTimers(GOBJ *fighter);
 void Fighter_BreakGrabUnk(GOBJ *victim);
 void Fighter_BreakGrab(GOBJ *fighter, GOBJ *victim);
 void Fighter_InitGrab(FighterData *fighter, int is_enable, void *on_grabber, void *on_item, void *on_victim);
@@ -3462,4 +3463,7 @@ void Fighter_GivePersistentIntangibility(GOBJ *f, int frames);
 void Fighter_TDI(FighterData *fp);
 void Fighter_PlayQueuedDamageSounds(FighterData *fp);
 GXColor Fighter_GetPlyHUDColor(int ply); // used for lupe, pokemon stadium text color, results viewport broder
+void FSmash_GetASForAnalogAngle(GOBJ *ft);
+Mtx *Fighter_GetMtxPtr(FighterData *fp);
+
 #endif

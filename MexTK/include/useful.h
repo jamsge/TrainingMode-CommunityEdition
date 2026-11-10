@@ -16,8 +16,8 @@ int strncmp(const char *s1, const char *s2, int n);
 int strcpy(const char *s1, const char *s2);
 int strlen(const char *s);
 
-void memcpy(void *dest, void *source, int size);
-void memmove(void *dest, void *source, int size);
+void memcpy(void *dest, const void *source, int size);
+void memmove(void *dest, const void *source, int size);
 void memset(void *dest, int c, int size);
 int sprintf(char *restrict str, const char *restrict format, ...);
 
@@ -570,8 +570,6 @@ int DVDWaitForRead();
 int File_Read(int entrynum, int file_offset, void *buffer, int read_size, int flags, int unk_index, void *cb, int cb_arg2); // just use 0x21 for flags if dram, 0x23 if aram, 1 for unk_index
 int File_ReadSync(int entrynum, int file_offset, void *buffer, int read_size, int flags, int unk_index);                    // just use 0x21 for flags if dram, 0x23 if aram, 1 for unk_index
 int File_GetSize(char *file_name);
-void memcpy(void *dest, void *source, int size);
-void memset(void *dest, int fill, int size);
 s32 CARDGetStatus(s32 chan, s32 fileNo, CARDStat *stat);
 s32 CARDMountAsync(s32 chan, void *workArea, void *detachCallback, void *attachCallback);
 s32 CARDUnmount(s32 chan);

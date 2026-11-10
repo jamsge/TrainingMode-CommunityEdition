@@ -1,5 +1,6 @@
 #include "events.h"
 #include "savestate.h"
+#include "osds.h"
 #include <stdarg.h>
 
 /////////////////////
@@ -145,6 +146,38 @@ EventDesc Wavedash = {
     .matchData = &Wavedash_MatchData,
 };
 
+// TechChase Training
+static EventMatchData TechChase_MatchData = {
+    .timer = MATCH_TIMER_HIDE,
+    .matchType = MATCH_MATCHTYPE_TIME,
+    .hideGo = true,
+    .hideReady = true,
+    .isCreateHUD = false,
+    .timerRunOnPause = false,
+    .isCheckForZRetry = false,
+    .isShowScore = false,
+
+    .isRunStockLogic = false,
+    .isDisableHit = false,
+    .useKOCounter = false,
+    .timerSeconds = 0,
+};
+EventDesc TechChase = {
+    .eventName = "Techchase Training\n",
+    .eventDescription = "Practice chasing techs! A\nuseful tool to extend combos.",
+    .eventFile = "techchase",
+    .jumpTableIndex = -1,
+    .CSSType = SLCHRKIND_TRAINING,
+    .allowed_characters = { .hmn = -1, .cpu = -1 },
+    .cpuKind = -1,
+    .stage = -1,
+    .disable_hazards = true,
+    .force_sopo = false,
+    .scoreType = SCORETYPE_KO,
+    .callbackPriority = 3,
+    .matchData = &TechChase_MatchData,
+};
+
 // Float Cancel Training
 static EventMatchData FloatCancel_MatchData = {
     .timer = MATCH_TIMER_HIDE,
@@ -211,10 +244,47 @@ EventDesc Sweetspot = {
     .matchData = &Sweetspot_MatchData,
 };
 
+// Laser land training
+static EventMatchData LaserLand_MatchData = {
+    .timer = MATCH_TIMER_HIDE,
+    .matchType = MATCH_MATCHTYPE_TIME,
+    .hideGo = true,
+    .hideReady = true,
+    .isCreateHUD = false,
+    .timerRunOnPause = false,
+    .isCheckForZRetry = true,
+    .isShowScore = false,
+
+    .isRunStockLogic = false,
+    .isDisableHit = false,
+    .useKOCounter = false,
+    .timerSeconds = 0,
+};
+EventDesc LaserLand = {
+    .eventName = "Laser Land Training\n",
+    .eventDescription = "Use a laser to board platforms instantly!",
+    .eventFile = "laserland",
+    .jumpTableIndex = -1,
+    .CSSType = SLCHRKIND_EVENT,
+    .allowed_characters = {
+        .hmn = CSSID_FOX | CSSID_FALCO,
+        .cpu = -1,
+    },
+    .playerKind = -1,
+    .cpuKind = -1,
+    .stage = -1,
+    .disable_hazards = true,
+    .force_sopo = false,
+    .scoreType = SCORETYPE_KO,
+    .callbackPriority = 15,
+    .matchData = &LaserLand_MatchData,
+};
+
+
 // Combo Training
 EventDesc Combo = {
     .eventName = "Combo Training\n",
-    .eventDescription = "L+DPad adjusts percent | DPadDown moves CPU\nDPad right/left saves and loads positions.",
+    .eventDescription = "L+DPad adjusts percent.\nDPad down moves the CPU.",
     .eventFile = 0,
     .jumpTableIndex = JUMP_COMBO,
     .CSSType = SLCHRKIND_TRAINING,
@@ -333,11 +403,46 @@ EventDesc Powershield = {
     .cpuKind = CKIND_FALCO,
     .stage = GRKINDEXT_FD,
     .disable_hazards = true,
-    .force_sopo = true,
+    .force_sopo = false,
     .scoreType = SCORETYPE_KO,
     .callbackPriority = 3,
     .matchData = &Powershield_MatchData,
 };
+
+static EventMatchData EscapeDThrowKnee_MatchData = {
+    .timer = MATCH_TIMER_HIDE,
+    .matchType = MATCH_MATCHTYPE_TIME,
+    .hideGo = true,
+    .hideReady = true,
+    .isCreateHUD = true,
+    .timerRunOnPause = false,
+    .isCheckForZRetry = true,
+    .isShowScore = false,
+    .isRunStockLogic = false,
+    .isDisableHit = false,
+    .useKOCounter = false,
+    .timerSeconds = 0,
+};
+EventDesc EscapeDThrowKnee = {
+    .eventName = "Escape DThrow Knee\n",
+    .eventDescription = "Airdodge out of Falcon's down\nthrow knee kill confirm!",
+    .eventFile = "dthrowknee",
+    .jumpTableIndex = -1,
+    .CSSType = SLCHRKIND_EVENT,
+    .allowed_characters = {
+        .hmn = CSSID_PEACH | CSSID_MARIO | CSSID_DOCTOR_MARIO | CSSID_LUIGI
+            | CSSID_MEWTWO | CSSID_ZELDA | CSSID_ICE_CLIMBERS | CSSID_MARTH,
+        .cpu = -1
+    },
+    .cpuKind = CKIND_FALCON,
+    .stage = GRKINDEXT_FD,
+    .disable_hazards = true,
+    .force_sopo = true,
+    .scoreType = SCORETYPE_KO,
+    .callbackPriority = 3,
+    .matchData = &EscapeDThrowKnee_MatchData,
+};
+
 EventDesc Ledgetech = {
     .eventName = "Ledgetech Training\n",
     .eventDescription = "Practice ledgeteching\nFalco's down-smash!",
@@ -540,6 +645,37 @@ EventDesc Eggs = {
     .matchData = &Eggs_MatchData,
 };
 
+static EventMatchData Slalom_MatchData = {
+    .timer = MATCH_TIMER_COUNTDOWN,
+    .matchType = MATCH_MATCHTYPE_TIME,
+    .hideGo = false,
+    .hideReady = false,
+    .isCreateHUD = true,
+    .timerRunOnPause = false,
+    .isCheckForZRetry = true,
+    .isShowScore = false,
+    .isRunStockLogic = false,
+    .isDisableHit = false,
+    .useKOCounter = false,
+    .timerSeconds = 60,
+};
+
+EventDesc Slalom = {
+    .eventName = "Slalom\n",
+    .eventDescription = "Dash-dance around poles\nas quickly as you can!",
+    .eventFile = "slalom",
+    .jumpTableIndex = -1,
+    .CSSType = SLCHRKIND_EVENT,
+    .allowed_characters = { .hmn = -1, .cpu = -1 },
+    .cpuKind = -1,
+    .stage = GRKINDEXT_FD,
+    .disable_hazards = true,
+    .force_sopo = false,
+    .scoreType = SCORETYPE_KO,
+    .callbackPriority = 3,
+    .matchData = &Slalom_MatchData,
+};
+
 EventDesc Multishine = {
     .eventName = "Shined Blind\n",
     .eventDescription = "How many shines can you\nperform in 10 seconds?",
@@ -598,6 +734,7 @@ EventDesc Ledgestall = {
 // Minigames
 static EventDesc *Minigames_Events[] = {
     &Eggs,
+    &Slalom,
     &Multishine,
     &Reaction,
     &Ledgestall,
@@ -614,6 +751,7 @@ static EventDesc *General_Events[] = {
     &LCancel,
     &Ledgedash,
     &Wavedash,
+    &TechChase,
     &Combo,
     &AttackOnShield,
     &Reversal,
@@ -638,7 +776,9 @@ static EventDesc *CharacterSpecific_Events[] = {
     &TechCounter,
     &Edgeguard,
     &Sweetspot,
+    &LaserLand,
     &EscapeSheik,
+    &EscapeDThrowKnee,
     &FloatCancel,
 };
 static EventPage CharacterSpecific_Page = {
@@ -666,15 +806,19 @@ EventVars stc_event_vars = {
     .menu_gobj = 0,
     .rng = &rng,
     .game_timer = 0,
+    .flags = 0,
     .Savestate_Save_v1 = Savestate_Save_v1,
     .Savestate_Load_v1 = Savestate_Load_v1,
     .Message_Display = Message_Display,
     .Tip_Display = Tip_Display,
     .Tip_Destroy = Tip_Destroy,
+    .GFX_Start = GFX_Start,
     .HUD_DrawRects = HUD_DrawRects,
+    .HUD_DrawTris = HUD_DrawTris,
     .HUD_DrawText = HUD_DrawText,
     .HUD_DrawActionLogBar = HUD_DrawActionLogBar,
     .HUD_DrawActionLogKey = HUD_DrawActionLogKey,
+    .HUD_DrawInfoPanel = HUD_DrawInfoPanel,
 };
 
 static GOBJ *stc_msgmgr;
@@ -729,57 +873,79 @@ static GXColor stc_msg_colors[] = {
 /// Primitives ///
 //////////////////
 
+void GFX_Start(u16 vtx_count, GFX_Params params)
+{
+    // mostly copy pasted from 80391A04
+    Mtx mtx;
+    HSD_ClearVtxDesc();
+    GXSetCurrentMtx(0);
+    COBJ_GetViewingMtx(COBJ_GetCurrent(), &mtx);
+    GXLoadPosMtxImm(mtx, 0);
+    HSD_StateSetLineWidth(params.size, 5);
+    HSD_StateSetPointSize(params.size, 5);
+    HSD_SetupRenderMode(0x68000002);
+    GXSetVtxAttrFmt(GX_VTXFMT0, GX_VA_POS, GX_POS_XYZ, GX_F32, 0);
+    GXSetVtxAttrFmt(GX_VTXFMT0, GX_VA_CLR0, GX_CLR_RGBA, GX_RGBA8, 0);
+    GXSetVtxDesc(GX_VA_POS, GX_DIRECT);
+    GXSetVtxDesc(GX_VA_CLR0, GX_DIRECT);
+    HSD_StateSetCullMode(0);
+    COBJ_GetViewingMtx(COBJ_GetCurrent(), &mtx);
+
+    GXBegin(params.shape, GX_VTXFMT0, vtx_count);
+}
+
+void HUD_DrawTris(Tri *tris, GXColor *colors, int count)
+{
+    HUDCamData *cam_data = stc_event_vars.hudcam_gobj->userdata;
+    if (cam_data->hide) return;
+
+    COBJ *prev_camera = COBJ_GetCurrent();
+    CObj_SetCurrent(stc_event_vars.hudcam_gobj->hsd_object);
+
+    GFX_Start(count * 3, (GFX_Params) { .shape = GX_TRIANGLES });
+    for (int i = 0; i < count; ++i) {
+        GXColor color = colors[i];
+        Tri *tri = &tris[i];
+        GFX_AddVtx((*tri)[0].X, (*tri)[0].Y, 0.f, color);
+        GFX_AddVtx((*tri)[1].X, (*tri)[1].Y, 0.f, color);
+        GFX_AddVtx((*tri)[2].X, (*tri)[2].Y, 0.f, color);
+    }
+
+    CObj_SetCurrent(prev_camera);
+}
+
 void HUD_DrawRects(Rect *rects, GXColor *colors, int count)
 {
     HUDCamData *cam_data = stc_event_vars.hudcam_gobj->userdata;
-    if (cam_data->hide)
-        return;
+    if (cam_data->hide) return;
 
-    COBJ *cur_cam = COBJ_GetCurrent();
+    COBJ *prev_camera = COBJ_GetCurrent();
     CObj_SetCurrent(stc_event_vars.hudcam_gobj->hsd_object);
-    
-    // https://smashboards.com/threads/primitive-drawing-module.454232/
-    // params1: no culling, no point/line size, no zbuffer, triangles
-    // params2: blending, blend src = src.a, blend dst = 1-src.a, noop blend op
-    PRIM_DrawMode draw_mode = {
-        .shape = PRIM_SHAPE_TRIANGLES,
-    };
-    PRIM_BlendMode blend_mode = {
-        .blend_type = PRIM_BLEND_BLEND,
-        .blend_src = PRIM_SOURCE_SRC_ALPHA,
-        .blend_dst = PRIM_SOURCE_SRC_INV_ALPHA,
-        .blend_logic = PRIM_LOGIC_NOOP,
-    };
-    PRIM_NEW(count * 6, draw_mode, blend_mode);
-    
+
+    GFX_Start(count * 4, (GFX_Params) { .shape = GX_QUADS });
     for (int i = 0; i < count; ++i) {
-        GXColor gx_color = colors[i];
-        u32 color = ((u32)gx_color.r << 24u)
-            | ((u32)gx_color.g << 16u)
-            | ((u32)gx_color.b << 8u)
-            | ((u32)gx_color.a << 0u);
-        
+        GXColor color = colors[i];
+
         Rect *rect = &rects[i];
         float x1 = rect->x;
         float y1 = rect->y;
         float x2 = x1 + rect->w;
         float y2 = y1 + rect->h;
-        
-        PRIM_DRAW(x1, y1, 0.f, color);
-        PRIM_DRAW(x1, y2, 0.f, color);
-        PRIM_DRAW(x2, y1, 0.f, color);
-        
-        PRIM_DRAW(x1, y2, 0.f, color);
-        PRIM_DRAW(x2, y1, 0.f, color);
-        PRIM_DRAW(x2, y2, 0.f, color);
+
+        GFX_AddVtx(x1, y1, 0.f, color);
+        GFX_AddVtx(x1, y2, 0.f, color);
+        GFX_AddVtx(x2, y2, 0.f, color);
+        GFX_AddVtx(x2, y1, 0.f, color);
     }
-    
-    PRIM_CLOSE();
-    CObj_SetCurrent(cur_cam);
+
+    CObj_SetCurrent(prev_camera);
 }
 
-void HUD_DrawText(const char *text, Rect *pos, float size)
-{
+void HUD_DrawTextEx(
+    const char *text, Rect *pos, float size,
+    GXColor text_color, GXColor border_color,
+    float border_offset, int align
+) {
     HUDCamData *hud = stc_event_vars.hudcam_gobj->userdata;
     
     // skip if already used up entire text cache
@@ -792,9 +958,9 @@ void HUD_DrawText(const char *text, Rect *pos, float size)
         Text *new_text = Text_CreateText(2, hud->canvas);
         *text_ptr = new_text;
         new_text->kerning = 1;
-        new_text->align = 1;
+        new_text->align = align;
         new_text->use_aspect = 1;
-        new_text->aspect.X = 165;
+        new_text->aspect.X = 80;
         new_text->viewport_scale.X = 0.1f;
         new_text->viewport_scale.Y = 0.1f;
         Text_AddSubtext(new_text, 0, 0, "");
@@ -802,21 +968,30 @@ void HUD_DrawText(const char *text, Rect *pos, float size)
         Text_AddSubtext(new_text, 0, 0, "");
         Text_AddSubtext(new_text, 0, 0, "");
         Text_AddSubtext(new_text, 0, 0, "");
-        
-        GXColor black = {0, 0, 0, 255};
-        for (int i = 0; i < 4; ++i)
-            Text_SetColor(new_text, i, &black);
     }
-    
+
     Text *hud_text = *text_ptr;
+
+    for (int i = 0; i < 4; ++i)
+        Text_SetColor(hud_text, i, &border_color);
+    Text_SetColor(hud_text, 4, &text_color);
+
     hud_text->hidden = false;
     float x = pos->x * 10.f + pos->w * 5.f;
     float y = pos->y * -10.f + pos->h * -5.f - 25.f;
-    for (int i = 0; i < 5; ++i) {
-        Text_SetText(hud_text, i, text);
-        Text_SetScale(hud_text, i, size, size);
+    
+    if (border_offset != 0.f && border_color.a != 0) {
+        for (int i = 0; i < 4; ++i) {
+            Text_SetText(hud_text, i, text);
+            Text_SetScale(hud_text, i, size, size);
+        }
+    } else {
+        for (int i = 0; i < 4; ++i)
+            Text_SetText(hud_text, i, "");
     }
-    float border_offset = 1.f;
+
+    Text_SetText(hud_text, 4, text);
+    Text_SetScale(hud_text, 4, size, size);
     Text_SetPosition(hud_text, 0, x-border_offset, y-border_offset);
     Text_SetPosition(hud_text, 1, x+border_offset, y-border_offset);
     Text_SetPosition(hud_text, 2, x-border_offset, y+border_offset);
@@ -824,15 +999,131 @@ void HUD_DrawText(const char *text, Rect *pos, float size)
     Text_SetPosition(hud_text, 4, x, y);
 }
 
+void HUD_DrawText(const char *text, Rect *pos, float size)
+{
+    HUD_DrawTextEx(
+        text, pos, size,
+        (GXColor) {255,255,255,255}, (GXColor) {0,0,0,255},
+        1.f, 1
+    );
+}
+
+static const Vec2 info_item_vtx[] = {
+    { 1.f, 5.f },    // 0: top left
+    { 0.f, 2.5f },    // 1: mid left
+    { 0.f, 0.f },    // 2: bottom left
+    { 9.f, 5.f },    // 3: top right
+    { 9.f, 2.5f },    // 4: mid right
+    { 9.f, 0.f },    // 5: bottom right
+    { 0.2f, 2.5f },   // 6: mid left (inset)
+    { 0.2f, 0.2f },  // 7: bottom left (inset)
+    { 9.f, 0.2f },   // 8: bottom right (inset)
+};
+static const u8 info_item_quad_grey_idx[] = {
+    0, 1, 4, 3,
+    1, 2, 7, 6,
+    2, 7, 8, 5,
+};
+static const u8 info_item_quad_black_idx[] = {
+    6, 7, 8, 4
+};
+static const Rect info_item_label_rect = { 0.8f, 2.5f, 8.6f, 2.5f };
+static const Rect info_item_info_rect = { 0.0f, 0.0f, 9.6f, 2.5f };
+
+void HUD_DrawInfoPanel(const char **label, const char **info, int count) {
+    HUDCamData *cam_data = stc_event_vars.hudcam_gobj->userdata;
+    if (cam_data->hide) return;
+    COBJ *prev_camera = COBJ_GetCurrent();
+    CObj_SetCurrent(stc_event_vars.hudcam_gobj->hsd_object);
+
+    float x = 18.f;
+    float y = 9.f;
+    GXColor grey = { 130, 130, 130, 180 };
+    GXColor black = { 0, 0, 0, 180 };
+
+    int vtx_count = countof(info_item_quad_grey_idx)*count // info model (grey)
+        + countof(info_item_quad_black_idx)*count // info model (black)
+        + /* border */ 16;
+    
+    // we could use indexed quads + non-direct grey here, but that's just a minor gain
+    GFX_Start(vtx_count, (GFX_Params) { .shape = GX_QUADS });
+
+    // draw info row
+    float cur_y = y;
+    for (int info_i = 0; info_i < count; ++info_i) {
+        for (u32 vtx_i = 0; vtx_i < countof(info_item_quad_grey_idx); ++vtx_i) {
+            Vec2 pos = info_item_vtx[info_item_quad_grey_idx[vtx_i]];
+            GFX_AddVtx(x + pos.X, cur_y + pos.Y, 0, grey);
+        }
+        for (u32 vtx_i = 0; vtx_i < countof(info_item_quad_black_idx); ++vtx_i) {
+            Vec2 pos = info_item_vtx[info_item_quad_black_idx[vtx_i]];
+            GFX_AddVtx(x + pos.X, cur_y + pos.Y, 0, black);
+        }
+        
+        Rect label_rect = info_item_label_rect;
+        label_rect.x += x;
+        label_rect.y += cur_y;
+        HUD_DrawTextEx(
+            label[info_i], &label_rect, 0.5f,
+            (GXColor) {0,0,0,255}, (GXColor) {0,0,0,0},
+            0, 1
+        );
+
+        Rect info_rect = info_item_info_rect;
+        info_rect.x += x;
+        info_rect.y += cur_y;
+        HUD_DrawTextEx(
+            info[info_i], &info_rect, 0.5f,
+            (GXColor) {220,220,220,255}, (GXColor) {0,0,0,0},
+            0, 1
+        );
+
+        cur_y -= 5.5f;
+    }
+
+    // draw border
+    float x0 = x - 0.7f;
+    float x1i = x + 9.f;
+    float y0 = y + 0.5f + 5.f;
+    float y1 = y0 - 5.5f*count - 0.5f;
+    float x0i = x0 + 0.3f;
+    float x1 = x1i + 0.4f;
+    float y0i = y0 - 0.3f;
+    float y1i = y1 + 0.3f;
+
+    GFX_AddVtx(x0, y0, 0, grey);
+    GFX_AddVtx(x0, y1, 0, grey);
+    GFX_AddVtx(x0i, y1i, 0, grey);
+    GFX_AddVtx(x0i, y0i, 0, grey);
+
+    GFX_AddVtx(x1, y0, 0, grey);
+    GFX_AddVtx(x1, y1, 0, grey);
+    GFX_AddVtx(x1i, y1i, 0, grey);
+    GFX_AddVtx(x1i, y0i, 0, grey);
+
+    GFX_AddVtx(x0, y0, 0, grey);
+    GFX_AddVtx(x1, y0, 0, grey);
+    GFX_AddVtx(x1i, y0i, 0, grey);
+    GFX_AddVtx(x0i, y0i, 0, grey);
+
+    GFX_AddVtx(x0, y1, 0, grey);
+    GFX_AddVtx(x1, y1, 0, grey);
+    GFX_AddVtx(x1i, y1i, 0, grey);
+    GFX_AddVtx(x0i, y1i, 0, grey);
+
+    CObj_SetCurrent(prev_camera);
+}
+
 static float log_size = 1.f;
 static float log_padding = 0.1f;
 static float log_y_pos = 15.f;
 static GXColor log_background_color = { 20, 20, 20, 255 };
-static float action_name_size = 4.5f;
-static float action_name_padding = 1.f;
-static float action_name_y_pos = 15.f;
+static float action_key_size = 15.f;
+static float action_key_size_decrement = 1.2f;
+static float action_key_y_pos = 15.f;
+static float action_key_height = 6.f;
 
-void HUD_DrawActionLogBar(u8 *action_log, GXColor *color_lookup, int log_count) {
+Rect HUD_DrawActionLogBar(u8 *action_log, GXColor *color_lookup, int log_count) {
     Rect rects[log_count + 1];
     GXColor colors[log_count + 1];
     
@@ -842,37 +1133,44 @@ void HUD_DrawActionLogBar(u8 *action_log, GXColor *color_lookup, int log_count) 
     Rect background = { -w/2.f, log_y_pos, w, log_size + log_padding*2.f }; 
     rects[0] = background;
     colors[0] = log_background_color;
-    
+
     RectShrink(&background, log_padding);
+    Rect ret = background;
+    
     for (int i = 0; i < log_count; ++i) {
         RectSplitL(&rects[i+1], &background, log_size, log_padding);
         colors[i+1] = color_lookup[action_log[i]];
     }
-    
+
     HUD_DrawRects(rects, colors, log_count + 1);
+
+    return ret;
 }
-    
+
 void HUD_DrawActionLogKey(char **action_names, GXColor *action_colors, int action_count) {
     Rect rects[action_count*2];
     GXColor colors[action_count*2];
-    
-    float w = action_count * action_name_size + (action_count + 1.f) * action_name_padding;
-    Rect action_table_row = { -w/2.f, action_name_y_pos, w, action_name_size + action_name_padding*2.f };
-    RectShrink(&action_table_row, action_name_padding);
-    
+
+    float action_count_f = (float)action_count;
+    float size = action_key_size - action_count_f * action_key_size_decrement;
+    float w = action_count_f * size;
+    Rect action_table_row = { -w/2.f, action_key_y_pos, w, action_key_height };
+
     Rect cur_rect;
     for (int i = 0; i < action_count; ++i) {
-        RectSplitL(&cur_rect, &action_table_row, action_name_size, action_name_padding);
+        RectSplitL(&cur_rect, &action_table_row, size, 0);
         HUD_DrawText(action_names[i], &cur_rect, 0.34f);
-        
-        colors[i*2+0] = log_background_color;
-        colors[i*2+1] = action_colors[i];
-        
+
+        RectCentreW(&cur_rect, log_size + log_padding);
+        RectCentreH(&cur_rect, log_size + log_padding);
         cur_rect.y += 2.f;
-        RectShrink(&cur_rect, (action_name_size - log_size) / 2.f - log_padding);
         rects[i*2+0] = cur_rect;
+
         RectShrink(&cur_rect, log_padding);
         rects[i*2+1] = cur_rect;
+
+        colors[i*2+0] = log_background_color;
+        colors[i*2+1] = action_colors[i];
     }
     
     HUD_DrawRects(rects, colors, action_count * 2);
@@ -966,8 +1264,9 @@ void EventInit(int page, int eventID, MatchInit *matchData)
         matchData->playerData[0].portNumberOverride = hmn_port;
 
         // Force Popo if required
-        if (event->force_sopo && matchData->playerData[0].c_kind == CKIND_ICECLIMBERS)
+        if (event->force_sopo && matchData->playerData[0].c_kind == CKIND_ICECLIMBERS) {
             matchData->playerData[0].c_kind = CKIND_POPO;
+        }
 
         // Determine the correct HUD position for this amount of players
         int hudPos = 0;
@@ -991,8 +1290,18 @@ void EventInit(int page, int eventID, MatchInit *matchData)
     }
 };
 
+void StartOSDs(void)
+{
+    // Add OSD callback
+    // Very low priority of 20, runs after everything else
+    GOBJ *osd_gobj = GObj_Create(0, 7, 0);
+    GObj_AddProc(osd_gobj, OSD_Think, 20);
+}
+
 void EventLoad(void)
 {
+    StartOSDs();
+
     // get this event
     int page = stc_memcard->TM_EventPage;
     int eventID = stc_memcard->EventBackup.event;
@@ -1018,7 +1327,7 @@ void EventLoad(void)
     void *userdata = calloc(EVENT_DATASIZE);
     GObj_AddUserData(gobj, 4, HSD_Free, userdata);
     GObj_AddProc(gobj, cb, pri);
-
+    
     // store pointer to the event's data
     *(EventDesc **)userdata = event_desc;
 
@@ -1319,7 +1628,7 @@ void Event_IncTimer(GOBJ *gobj)
 void TM_CreateWatermark(void)
 {
     // create text canvas
-    int canvas = Text_CreateCanvas(10, 0, 9, 13, 0, 14, 0, 19);
+    int canvas = Text_CreateCanvas(10, 0, 9, 13, 0, 14, 0, 10);
     
     // create text
     Text *text = Text_CreateText(10, canvas);
@@ -1440,7 +1749,7 @@ void Message_Init(void)
     GOBJ *mgr_gobj = GObj_Create(0, 7, 0);
     MsgMngrData *mgr_data = calloc(sizeof(MsgMngrData));
     GObj_AddUserData(mgr_gobj, 4, HSD_Free, mgr_data);
-    GObj_AddProc(mgr_gobj, Message_Manager, 18);
+    GObj_AddProc(mgr_gobj, Message_Manager, 21);
 
     // create text canvas
     int canvas = Text_CreateCanvas(2, mgr_gobj, 14, 15, 0, MSG_GXLINK, MSGTEXT_GXPRI, 19);
@@ -1454,7 +1763,6 @@ void Message_Init(void)
 }
 GOBJ *Message_Display(int msg_kind, int queue_num, int msg_color, char *format, ...)
 {
-
     va_list args;
 
     MsgMngrData *mgr_data = stc_msgmgr->userdata;
@@ -1485,19 +1793,25 @@ GOBJ *Message_Display(int msg_kind, int queue_num, int msg_color, char *format, 
     msg_text->use_aspect = 1;
     msg_text->color = stc_msg_colors[msg_color];
 
+    Playerblock *source = Fighter_GetPlayerblock(queue_num);
+    if (source && source->p_kind != PKIND_HMN) {
+        JOBJ_SetFlagsAll(msg_jobj, JOBJ_HIDDEN);
+        msg_text->hidden = true;
+    }
+
     // adjust scale
     Vec3 scale = msg_jobj->scale;
     // background scale
     msg_jobj->scale = scale;
     // text scale
-    msg_text->viewport_scale.X = (scale.X * 0.01) * MSGTEXT_BASESCALE;
-    msg_text->viewport_scale.Y = (scale.Y * 0.01) * MSGTEXT_BASESCALE;
+    msg_text->viewport_scale.X = (scale.X * 0.01f) * MSGTEXT_BASESCALE;
+    msg_text->viewport_scale.Y = (scale.Y * 0.01f) * MSGTEXT_BASESCALE;
     msg_text->aspect.X = MSGTEXT_BASEWIDTH;
 
     JOBJ_SetMtxDirtySub(msg_jobj);
 
     // build string
-    char buffer[(MSG_LINEMAX * MSG_CHARMAX) + 1];
+    char buffer[MSG_LINEMAX * MSG_CHARMAX + 1];
     va_start(args, format);
     vsprintf(buffer, format, args);
     va_end(args);
@@ -1543,11 +1857,11 @@ GOBJ *Message_Display(int msg_kind, int queue_num, int msg_color, char *format, 
         msg_line[line_length] = '\0';
 
         // increment msg
-        msg += (line_length + 1); // +1 to skip past newline
+        msg += line_length + 1; // +1 to skip past newline
 
         // print line
-        int y_base = (line_num - 1) * ((-1 * MSGTEXT_YOFFSET) / 2);
-        int y_delta = (i * MSGTEXT_YOFFSET);
+        int y_base = (line_num - 1) * (-MSGTEXT_YOFFSET / 2);
+        int y_delta = i * MSGTEXT_YOFFSET;
         Text_AddSubtext(msg_text, 0, y_base + y_delta, msg_line);
     }
 
@@ -1566,12 +1880,12 @@ void Message_Manager(GOBJ *mngr_gobj)
         GOBJ **msg_queue = mgr_data->msg_queue[i];
 
         // anim update (time based logic)
-        for (int j = (MSGQUEUE_SIZE - 2); j >= 0; j--) // iterate through backwards (because deletions)
+        for (int j = MSGQUEUE_SIZE - 1; j >= 0; j--) // iterate through backwards (because deletions)
         {
             GOBJ *this_msg_gobj = msg_queue[j];
 
             // if message exists
-            if (this_msg_gobj != 0)
+            if (this_msg_gobj)
             {
                 MsgData *this_msg_data = this_msg_gobj->userdata;
 
@@ -1618,7 +1932,7 @@ void Message_Manager(GOBJ *mngr_gobj)
                 {
 
                     // if timer is ended, remove the message
-                    if ((this_msg_data->anim_timer <= 0))
+                    if (this_msg_data->anim_timer <= 0)
                     {
                         Message_Destroy(msg_queue, j);
                     }
@@ -1635,7 +1949,7 @@ void Message_Manager(GOBJ *mngr_gobj)
             GOBJ *this_msg_gobj = msg_queue[j];
 
             // if message exists
-            if (this_msg_gobj != 0)
+            if (this_msg_gobj)
             {
                 MsgData *this_msg_data = this_msg_gobj->userdata;
                 Text *this_msg_text = this_msg_data->text;
@@ -1672,8 +1986,6 @@ void Message_Manager(GOBJ *mngr_gobj)
                 }
 
                 // Get the onscreen position for this queue
-                //float pos_delta = stc_msg_queue_offsets[i];
-
                 Vec3 this_msg_pos = {0, 0, 0};
 
                 switch (this_msg_data->state)
@@ -1704,8 +2016,8 @@ void Message_Manager(GOBJ *mngr_gobj)
                     this_msg_jobj->trans.X = this_msg_pos.X;
                     this_msg_jobj->trans.Y = this_msg_pos.Y;
                     // text position
-                    this_msg_text->trans.X = this_msg_pos.X + (MSGTEXT_BASEX * (scale.X / 4.0));
-                    this_msg_text->trans.Y = (this_msg_pos.Y * -1) + (MSGTEXT_BASEY * (scale.Y / 4.0));
+                    this_msg_text->trans.X =  this_msg_pos.X + MSGTEXT_BASEX * scale.X * 0.25f;
+                    this_msg_text->trans.Y = -this_msg_pos.Y + MSGTEXT_BASEY * scale.Y * 0.25f;
 
                     // adjust bar
                     JOBJ *bar;
@@ -1717,17 +2029,17 @@ void Message_Manager(GOBJ *mngr_gobj)
                 case (MSGSTATE_DELETE):
                 {
                     // get time
-                    float t = ((this_msg_data->anim_timer) / (float)MSGTIMER_DELETE);
+                    float t = this_msg_data->anim_timer / (float)MSGTIMER_DELETE;
 
                     Vec3 *scale = &this_msg_jobj->scale;
                     Vec3 *pos = &this_msg_jobj->trans;
 
                     // BG scale
-                    scale->Y = smooth_lerp(t,  0.0, 1.0);
+                    scale->Y = smooth_lerp(t,  0.f, 1.f);
                     // text scale
-                    this_msg_text->viewport_scale.Y = (scale->Y * 0.01) * MSGTEXT_BASESCALE;
+                    this_msg_text->viewport_scale.Y = scale->Y * 0.01f * MSGTEXT_BASESCALE;
                     // text position
-                    this_msg_text->trans.Y = (pos->Y * -1) + (MSGTEXT_BASEY * (scale->Y / 4.0));
+                    this_msg_text->trans.Y = -pos->Y + MSGTEXT_BASEY * scale->Y * 0.25f;
 
                     break;
                 }
@@ -1740,39 +2052,36 @@ void Message_Manager(GOBJ *mngr_gobj)
 }
 void Message_Destroy(GOBJ **msg_queue, int msg_num)
 {
-
     GOBJ *msg_gobj = msg_queue[msg_num];
     MsgData *msg_data = msg_gobj->userdata;
 
     // Destroy text
     Text *text = msg_data->text;
-    if (text != 0)
+    if (text)
         Text_Destroy(text);
 
     // Destroy GOBJ
     GObj_Destroy(msg_gobj);
 
-    // null pointer
-    msg_queue[msg_num] = 0;
-
     // shift others
-    for (int i = (msg_num); i < (MSGQUEUE_SIZE - 1); i++)
+    for (int i = msg_num; i < MSGQUEUE_SIZE - 1; i++)
     {
         msg_queue[i] = msg_queue[i + 1];
 
         // update its prev pos
         GOBJ *this_msg_gobj = msg_queue[i];
-        if (this_msg_gobj != 0)
+        if (this_msg_gobj)
         {
             MsgData *this_msg_data = this_msg_gobj->userdata;
-            if (this_msg_data != 0)
-                this_msg_data->prev_index = i + 1; // prev position
+            this_msg_data->prev_index = i + 1; // prev position
         }
     }
+
+    msg_queue[MSGQUEUE_SIZE-1] = 0;
 }
+
 void Message_Add(GOBJ *msg_gobj, int queue_num)
 {
-
     MsgData *msg_data = msg_gobj->userdata;
     MsgMngrData *mgr_data = stc_msgmgr->userdata;
     GOBJ **msg_queue = mgr_data->msg_queue[queue_num];
@@ -1789,14 +2098,13 @@ void Message_Add(GOBJ *msg_gobj, int queue_num)
             GOBJ *this_msg_gobj = msg_queue[i];
 
             // if it exists
-            if (this_msg_gobj != 0)
+            if (this_msg_gobj)
             {
                 MsgData *this_msg_data = this_msg_gobj->userdata;
 
                 // Remove this message if its of the same kind
-                if ((this_msg_data->kind == msg_data->kind))
+                if (this_msg_data->kind == msg_data->kind)
                 {
-
                     Message_Destroy(msg_queue, i); // remove the message and shift others
 
                     // if the message we're replacing is the most recent message, instantly
@@ -1812,20 +2120,18 @@ void Message_Add(GOBJ *msg_gobj, int queue_num)
     }
 
     // first remove last message in the queue
-    if (msg_queue[MSGQUEUE_SIZE - 1] != 0)
-    {
+    if (msg_queue[MSGQUEUE_SIZE - 1])
         Message_Destroy(msg_queue, MSGQUEUE_SIZE - 1);
-    }
 
     // shift other messages
-    for (int i = (MSGQUEUE_SIZE - 2); i >= 0; i--)
+    for (int i = MSGQUEUE_SIZE - 2; i >= 0; i--)
     {
         // shift message
         msg_queue[i + 1] = msg_queue[i];
 
         // update its prev pos
         GOBJ *this_msg_gobj = msg_queue[i + 1];
-        if (this_msg_gobj != 0)
+        if (this_msg_gobj)
         {
             MsgData *this_msg_data = this_msg_gobj->userdata;
             this_msg_data->prev_index = i; // prev position
@@ -1859,17 +2165,15 @@ void Tip_Init(void)
 
     // create tipmgr gobj
     GOBJ *tipmgr_gobj = GObj_Create(0, 7, 0);
-    GObj_AddProc(tipmgr_gobj, Tip_Think, 18);
+    GObj_AddProc(tipmgr_gobj, Tip_Think, 21);
 }
 void Tip_Think(GOBJ *gobj)
 {
-
     GOBJ *tip_gobj = stc_tipmgr.gobj;
 
     // update tip
-    if (tip_gobj != 0)
+    if (tip_gobj)
     {
-
         // update anim
         JOBJ_AnimAll(tip_gobj->hsd_object);
 
@@ -1879,8 +2183,8 @@ void Tip_Think(GOBJ *gobj)
         JOBJ_GetChild(tip_gobj->hsd_object, &tip_jobj, TIP_TXTJOINT, -1);
         JOBJ_GetWorldPosition(tip_jobj, 0, &tip_pos);
         Text *tip_text = stc_tipmgr.text;
-        tip_text->trans.X = tip_pos.X + (0 * (tip_jobj->scale.X / 4.0));
-        tip_text->trans.Y = (tip_pos.Y * -1) + (0 * (tip_jobj->scale.Y / 4.0));
+        tip_text->trans.X = tip_pos.X;
+        tip_text->trans.Y = -tip_pos.Y;
 
         // state logic
         switch (stc_tipmgr.state)
@@ -1938,7 +2242,7 @@ int Tip_Display(int lifetime, char *fmt, ...)
     va_list args;
 
     // if tip exists
-    if (stc_tipmgr.gobj != 0)
+    if (stc_tipmgr.gobj)
     {
         // if tip is in the process of exiting
         if (stc_tipmgr.state == 2)
@@ -1983,9 +2287,9 @@ int Tip_Display(int lifetime, char *fmt, ...)
     // background scale
     tip_jobj->scale = scale;
     // text scale
-    tip_text->viewport_scale.X = (scale.X * 0.01) * TIP_TXTSIZEX;
-    tip_text->viewport_scale.Y = (scale.Y * 0.01) * TIP_TXTSIZEY;
-    tip_text->aspect.X = (TIP_TXTASPECT / TIP_TXTSIZEX);
+    tip_text->viewport_scale.X = scale.X * 0.01f * TIP_TXTSIZEX;
+    tip_text->viewport_scale.Y = scale.Y * 0.01f * TIP_TXTSIZEY;
+    tip_text->aspect.X = TIP_TXTASPECT / TIP_TXTSIZEX;
 
     // apply enter anim
     JOBJ_RemoveAnimAll(tip_jobj);
@@ -2025,7 +2329,6 @@ int Tip_Display(int lifetime, char *fmt, ...)
     // copy each line to an individual char array
     for (int i = 0; i < line_num; i++)
     {
-
         // check if over char max
         u8 line_length = line_length_arr[i];
         if (line_length > TIP_CHARMAX)
@@ -2039,10 +2342,10 @@ int Tip_Display(int lifetime, char *fmt, ...)
         msg_line[line_length] = '\0';
 
         // increment msg
-        msg += (line_length + 1); // +1 to skip past newline
+        msg += line_length + 1; // +1 to skip past newline
 
         // print line
-        int y_delta = (i * MSGTEXT_YOFFSET);
+        int y_delta = i * MSGTEXT_YOFFSET;
         Text_AddSubtext(tip_text, 0, y_delta, msg_line);
     }
 
@@ -2051,7 +2354,7 @@ int Tip_Display(int lifetime, char *fmt, ...)
 void Tip_Destroy(void)
 {
     // check if tip exists and isnt in exit state, enter exit
-    if ((stc_tipmgr.gobj != 0) && (stc_tipmgr.state != 2))
+    if (stc_tipmgr.gobj && stc_tipmgr.state != 2)
     {
         // apply exit anim
         JOBJ *tip_root = stc_tipmgr.gobj->hsd_object;

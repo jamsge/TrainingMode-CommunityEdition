@@ -14,7 +14,7 @@ static EventOption Options_Main[OPT_COUNT] = {
     {
         .kind = OPTKIND_TOGGLE,
         .name = "Target",
-        .desc = {"Enable a target to attack"},
+        .desc = {"Enable a target to attack."},
     },
     {
         .kind = OPTKIND_FUNC,
@@ -66,8 +66,9 @@ static char *action_names[] = {
     "Landing",
 };
 
-static u32 action_log_cur;
-static u8 action_log[30];
+static u8 action_log[35];
+static u32 action_log_cur = countof(action_log); // start with log disabled
+static GOBJ *barrel;
 
 static GXColor action_colors[Action_Count] = {
     {40, 40, 40, 180},  // dark gray - none
@@ -124,11 +125,6 @@ void Event_Init(GOBJ *menu) {
     GObj_AddGXLink(gobj, GX, 5, 0);
 }
 
-// prevent action log from filling until first jump.
-static bool started = false;
-
-static GOBJ *barrel;
-
 void Barrel_Spawn(void) {
     Vec3 pos = { 0 };
     SpawnItem spawn = {
@@ -152,12 +148,16 @@ int Barrel_OnTakeDamage(GOBJ *_) {
     }
     return false;
 }
+
 void Barrel_OnDestroy(GOBJ *_) {
     if (Options_Main[OPT_BARREL].val)
         Barrel_Spawn();
 }
 
 void Event_Think(GOBJ *menu) {
+    GOBJ *ft = Fighter_GetGObj(0);
+    FighterData *ft_data = ft->userdata;
+
     // barrel ------------------------------------------------------------------
     
     if (Options_Main[OPT_BARREL].val) {
@@ -180,9 +180,6 @@ void Event_Think(GOBJ *menu) {
     // action log --------------------------------------------------------------
     
     {
-        GOBJ *ft = Fighter_GetGObj(0);
-        FighterData *ft_data = ft->userdata;
-        
         int state = ft_data->state_id;
         int is_fastfall = ft_data->flags.is_fastfall;
         
@@ -192,11 +189,11 @@ void Event_Think(GOBJ *menu) {
         if (ft_data->flags.hitlag) {
             cur_action = Action_Hitlag;
         } else if (state == ASID_JUMPF || state == ASID_JUMPB) {
-            started = true;
             cur_action = Action_None;
-            
-            // reset action log on the final frame of jumpsquat
             reset = ft_data->TM.state_frame == 2;
+        } else if (state == ASID_JUMPAERIALF || state == ASID_JUMPAERIALB) {
+            cur_action = Action_None;
+            reset = ft_data->TM.state_frame == 1;
         } else if (state == ASID_FLOAT) {
             if (ft_data->input.lstick.X == 0.f && ft_data->input.lstick.Y == 0.f)
                 cur_action = Action_FloatNeutral;
@@ -213,8 +210,6 @@ void Event_Think(GOBJ *menu) {
             cur_action = Action_Wait;
         }
             
-        if (!started) return;
-        
         if (reset) {
             memset(action_log, Action_None, sizeof(action_log));
             action_log_cur = 0;

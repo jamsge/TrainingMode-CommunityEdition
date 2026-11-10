@@ -39,6 +39,7 @@ typedef struct EventOption
         EventMenu *menu;                            // pointer to submenu for OPTKIND_MENU
         const char **values;                        // options for OPTKIND_STRING
         const char *format;                         // format string for OPTKIND_INT
+        const char *value_string;                   // optional value string for OPTKIND_FUNC / OPTKIND_INFO 
     };
     void (*OnChange)(GOBJ *menu_gobj, int value);   // function that runs when option is changed
     void (*OnSelect)(GOBJ *menu_gobj);              // function that runs when option is selected
@@ -95,6 +96,7 @@ void EventMenu_UpdateText(GOBJ *gobj);
 void EventMenu_CreateText(GOBJ *gobj);
 void EventMenu_CreateModel(GOBJ *gobj);
 void EventMenu_MenuThink(GOBJ *gobj, EventMenu *currMenu);
+void EventMenu_RunFuncOption(GOBJ *gobj, EventOption *func_option);
 void EventMenu_TextGX(GOBJ *gobj, int pass);
 void EventMenu_MenuGX(GOBJ *gobj, int pass);
 void EventMenu_Update(GOBJ *gobj);

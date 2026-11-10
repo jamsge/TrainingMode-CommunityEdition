@@ -39,3 +39,8 @@ TM-CE/
 
 # Mac files
 .DS_Store
+
+# Direnv / Nix generated
+.direnv/
+.nix-bin/
+bin/*.orig

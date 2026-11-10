@@ -26,6 +26,11 @@ if [[ "$(uname)" =~ "MSYS" ]]; then
     hgecko="bin/hgecko.exe"
     hmex="bin/hmex.exe"
     xdelta="bin/xdelta.exe"
+elif [[ "$(uname)" == "Darwin" && "$(uname -m)" == "arm64" ]]; then
+    gc_fst="bin/gc_fst_macos_arm64"
+    hgecko="bin/hgecko_macos_arm64"
+    hmex="bin/hmex_macos_arm64"
+    xdelta="xdelta3"
 else
     gc_fst="bin/gc_fst"
     hgecko="bin/hgecko"
@@ -54,23 +59,23 @@ mex_build() {
     local sym="${1}"
     local out="${2}"
     local src="${3}"
-    
+
     if [[ -n "${mode}" && "${mode}" != "${out}" ]]; then
         return
     fi
-    
+
     if [ -n "${4}" ]; then
         local dat="-dat ${4}"
     else
         local dat=""
     fi
-    
+
     if [ "${release}" = true ]; then
         local opt="-O2"
     else
         local opt="-DTM_DEBUG"
     fi
-    
+
     warn="-Wall -Wextra -Wno-char-subscripts -Wno-builtin-declaration-mismatch -Wno-unused-parameter"
     ${hmex} -q -l "MexTK/melee.link" -f "${warn} ${opt}" -s "${sym}" -t "MexTK/${sym}.txt" -o "${out}" -i ${src} ${dat} || kill_all
     echo built ${out}
@@ -80,18 +85,22 @@ mex_build() {
 mkdir -p build
 
 # compile code in parallel
-mex_build "tmFunction" "build/eventMenu.dat" "src/events.c src/menu.c src/savestate_v1.c" "dats/eventMenu.dat" &
+mex_build "tmFunction" "build/eventMenu.dat" "src/events.c src/menu.c src/osds.c src/savestate_v1.c" "dats/eventMenu.dat" &
 mex_build "cssFunction" "build/labCSS.dat" "src/lab_css.c" "dats/labCSS.dat" &
 mex_build "evFunction" "build/lab.dat" "src/lab.c" "dats/lab.dat" &
-mex_build "evFunction" "build/lcancel.dat" "src/lcancel.c" "dats/lcancel.dat" &
-mex_build "evFunction" "build/ledgedash.dat" "src/ledgedash.c" "dats/ledgedash.dat" &
+mex_build "evFunction" "build/lcancel.dat" "src/lcancel.c" &
+mex_build "evFunction" "build/ledgedash.dat" "src/ledgedash.c" &
 mex_build "evFunction" "build/wavedash.dat" "src/wavedash.c" "dats/wavedash.dat" &
 mex_build "evFunction" "build/powershield.dat" "src/powershield.c" &
+mex_build "evFunction" "build/dthrowknee.dat" "src/dthrowknee.c" &
 mex_build "evFunction" "build/edgeguard.dat" "src/edgeguard.c" &
-mex_build "evFunction" "build/fc.dat" "src/fc.c" "dats/ledgedash.dat" &
+mex_build "evFunction" "build/fc.dat" "src/fc.c" &
 mex_build "evFunction" "build/sweetspot.dat" "src/sweetspot.c" &
+mex_build "evFunction" "build/laserland.dat" "src/laserland.c" &
 mex_build "evFunction" "build/eggs.dat" "src/eggs.c" &
-mex_build "evFunction" "build/reversal.dat" "src/reversal.c"&
+mex_build "evFunction" "build/reversal.dat" "src/reversal.c" &
+mex_build "evFunction" "build/techchase.dat" "src/techchase.c" &
+mex_build "evFunction" "build/slalom.dat" "src/slalom.c" "dats/wavedash.dat" &
 
 # wait for compilation to finish
 wait
@@ -121,11 +130,15 @@ ${gc_fst} fs TM-CE.iso \
     insert TM/ledgedash.dat build/ledgedash.dat \
     insert TM/wavedash.dat build/wavedash.dat \
     insert TM/powershield.dat build/powershield.dat \
+    insert TM/dthrowknee.dat build/dthrowknee.dat \
     insert TM/edgeguard.dat build/edgeguard.dat \
     insert TM/fc.dat build/fc.dat \
     insert TM/sweetspot.dat build/sweetspot.dat \
+    insert TM/laserland.dat build/laserland.dat \
     insert TM/eggs.dat build/eggs.dat \
     insert TM/reversal.dat build/reversal.dat \
+    insert TM/techchase.dat build/techchase.dat \
+    insert TM/slalom.dat build/slalom.dat \
     insert codes.gct build/codes.gct \
     insert Start.dol build/Start.dol \
     insert opening.bnr opening.bnr
@@ -139,4 +152,3 @@ if [ "${2}" = "release" ]; then
     zip -r TM-CE.zip TM-CE/
     echo "built TM-CE.zip"
 fi
-

@@ -100,8 +100,3 @@ There are some offsets under the `r13 Offsets` header in `ASM/training-mode/Glob
 Look there for what is loaded if you see a load with negative offset into `R13`.
 `R13 = 0x804db6a0` always for melee. It is indexed by **signed** 16-bit integers. Generally you want to be careful modifying
 memory in the small data area, but there is some code in the repository that does so in a region unused by melee.
-
-## PRIM Lite
-
-PRIM Lite is a drawing module developed by punkline. There may be better ways to draw geometry, but I don't know how.
-Currently it's used by the DI draw code. See documentation at [this smashboards thread](https://smashboards.com/threads/primitive-drawing-module.454232/)

@@ -80,6 +80,24 @@
     lfs f2, RScale(textproperties)
     branchl r12, Text_UpdateSubtextSize
 
+##############
+## R = HELP ##
+##############
+
+    lfs f1, RX(textproperties) # X offset of text
+    lfs f2, RY(textproperties) # Y offset of text
+    mr r3, text # struct pointer
+    bl RText
+    mflr r4 # pointer to ASCII
+    branchl r12, Text_InitializeSubtext
+
+    # Change scale
+    mr r4, r3
+    mr r3, text
+    lfs f1, RScale(textproperties)
+    lfs f2, RScale(textproperties)
+    branchl r12, Text_UpdateSubtextSize
+
 ##################
 ## Version Text ##
 ##################
@@ -108,26 +126,6 @@
     stw r5, 0xF0(sp)
     addi r5, sp, 0xF0
     branchl r12, Text_ChangeTextColor
-
-    /*
-#################
-## Z = Options ##
-#################
-
-    # Initialize Subtext
-    lfs f1, OptionsX(textproperties)    # X offset of text
-    lfs f2, OptionsY(textproperties)    # Y offset of text
-    mr r3, text                         # struct pointer
-    bl OptionsText
-    mflr r4                             # pointer to ASCII
-    branchl r12, Text_InitializeSubtext
-    # Change scale
-    mr r4, r3
-    mr r3, text
-    lfs f1, OptionsScale(textproperties)
-    lfs f2, OptionsScale(textproperties)
-    branchl r12, Text_UpdateSubtextSize
-    */
 
 ###############################
 ## Left Page Arrow Indicator ##
@@ -287,9 +285,9 @@ LText:
     .string "L = OSD"
     .align 2
 
-OptionsText:
+RText:
     blrl
-    .string "Z = Options"
+    .string "R = Help"
     .align 2
 
 # **************************************************#

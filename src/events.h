@@ -6,8 +6,8 @@
 #include "savestate.h"
 #include <stdint.h>
 
-#define TM_VERSSHORT "TM-CE v1.3 d2"
-#define TM_VERSLONG "TM Community Edition v1.3 d2"
+#define TM_VERSSHORT "TM-CE v1.4 d2"
+#define TM_VERSLONG "TM Community Edition v1.4 d2"
 #define EVENT_DATASIZE 512
 #define TM_FUNC -(50 * 4)
 
@@ -129,6 +129,8 @@ typedef struct evFunction
     EventMenu **menu_start;
 } evFunction;
 
+typedef Vec2 Tri[3];
+
 typedef struct Rect
 {
     float x, y, w, h;
@@ -140,6 +142,20 @@ static inline void RectShrink(Rect *dst, float size)
     dst->y += size;
     dst->w -= size * 2.f;
     dst->h -= size * 2.f;
+}
+
+static inline void RectCentreW(Rect *dst, float new_w)
+{
+    float dx = dst->w - new_w;
+    dst->x += dx * 0.5;
+    dst->w -= dx;
+}
+
+static inline void RectCentreH(Rect *dst, float new_h)
+{
+    float dy = dst->h - new_h;
+    dst->y += dy * 0.5;
+    dst->h -= dy;
 }
 
 static inline void RectSplitL(Rect *dst, Rect *src, float size, float padding)
@@ -168,10 +184,44 @@ static inline void RectSplitD(Rect *dst, Rect *src, float size, float padding)
     src->h -= size + padding;
 }
 
+// GFX_Start and GFX_AddVtx is an incomplete reimplementation of the PRIM_LITE functions.
+// I don't know why, but it very occasionally crashes on console.
+// This reimplementation aims to not crash on console.
+
+typedef struct GFX_Params {
+    u8 shape; // GX_TRIANGLES, GX_LINES, etc.
+    u8 size; // width of lines and points
+
+    // more fields may be added in the future
+} GFX_Params;
+
+void GFX_Start(u16 vtx_count, GFX_Params params);
+
+// This is an inline function to avoid calling a function pointer for every single vtx.
+// It just writes to the gx_pipe anyways.
+//
+// EXPECTS PREMULTIPLIED COLORS
+static inline void GFX_AddVtx(f32 x, f32 y, f32 z, GXColor color) {
+    gx_pipe->d.F32 = x;
+    gx_pipe->d.F32 = y;
+    gx_pipe->d.F32 = z;
+    gx_pipe->d.U8 = color.r;
+    gx_pipe->d.U8 = color.g;
+    gx_pipe->d.U8 = color.b;
+    gx_pipe->d.U8 = color.a;
+}
+
 void HUD_DrawRects(Rect *rects, GXColor *colors, int count);
+void HUD_DrawTris(Tri *tris, GXColor *colors, int count);
 void HUD_DrawText(const char *text, Rect *pos, float size);
-void HUD_DrawActionLogBar(u8 *action_log, GXColor *color_lookup, int log_count);
+void HUD_DrawTextEx(
+    const char *text, Rect *pos, float size,
+    GXColor text_color, GXColor border_color,
+    float border_offset, int align
+);
+Rect HUD_DrawActionLogBar(u8 *action_log, GXColor *color_lookup, int log_count);
 void HUD_DrawActionLogKey(char **action_names, GXColor *action_colors, int action_count);
+void HUD_DrawInfoPanel(const char **label, const char **info, int count);
 
 typedef struct RNGControl
 {
@@ -189,6 +239,8 @@ typedef struct HUDCamData {
     Text *text_cache[32];
 } HUDCamData;
 
+#define EventVarsFlag_ForceGameLoop (1u << 0) // forces the update loop to continuously run
+
 typedef struct EventVars
 {
     EventDesc *event_desc;                                                                   // event information
@@ -197,6 +249,7 @@ typedef struct EventVars
     GOBJ *menu_gobj;                                                                         // event menu gobj
     RNGControl *rng;                                                                         // rng struct pointer
     int game_timer;                                                                          // amount of game frames passed
+    u32 flags;                                                                               // misc flags
     int (*Savestate_Save_v1)(Savestate_v1 *savestate, int flags);                                  // function pointer to save state
     int (*Savestate_Load_v1)(Savestate_v1 *savestate, int flags);                                  // function pointer to load state
     GOBJ *(*Message_Display)(int msg_kind, int queue_num, int msg_color, char *format, ...); // function pointer to display message
@@ -215,10 +268,18 @@ typedef struct EventVars
     DevText *db_console_text;
     Text *watermark;
     GOBJ *hudcam_gobj;
+    void (*GFX_Start)(u16 vtx_count, GFX_Params params);
     void (*HUD_DrawRects)(Rect *rects, GXColor *colors, int count);
+    void (*HUD_DrawTris)(Tri *tris, GXColor *colors, int count);
     void (*HUD_DrawText)(const char *text, Rect *pos, float size);
-    void (*HUD_DrawActionLogBar)(u8 *action_log, GXColor *color_lookup, int log_count);
+    void (*HUD_DrawTextEx)(
+        const char *text, Rect *pos, float size,
+        GXColor text_color, GXColor border_color,
+        float border_offset, int align
+    );
+    Rect (*HUD_DrawActionLogBar)(u8 *action_log, GXColor *color_lookup, int log_count);
     void (*HUD_DrawActionLogKey)(char **action_names, GXColor *action_colors, int action_count);
+    void (*HUD_DrawInfoPanel)(const char **label, const char **info, int count);
 } EventVars;
 #define event_vars_ptr_loc ((EventVars**)0x803d7054)
 #define event_vars (*event_vars_ptr_loc)

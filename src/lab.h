@@ -1,4 +1,5 @@
 #include "lab_common.h"
+#include "osds.h"
 
 // DECLARATIONS #############################################
 
@@ -6,6 +7,7 @@
 
 static ShortcutList Lab_ShortcutList;
 static EventMenu LabMenu_General;
+static EventMenu LabMenu_Controls;
 static EventMenu LabMenu_OverlaysHMN;
 static EventMenu LabMenu_OverlaysCPU;
 static EventMenu LabMenu_InfoDisplayHMN;
@@ -20,6 +22,9 @@ static EventMenu LabMenu_CustomOSDs;
 static EventMenu LabMenu_SlotManagement;
 static EventMenu LabMenu_AlterInputs;
 static EventMenu LabMenu_OSDs;
+static EventMenu LabMenu_ActionLog;
+static EventMenu LabMenu_HitboxTrails;
+static EventMenu LabMenu_Display;
 
 #define AUTORESTORE_DELAY 20
 #define INTANG_COLANIM 10
@@ -77,8 +82,8 @@ enum custom_asid_groups
     ASID_ACTIONABLE = 1000,
     ASID_ACTIONABLEGROUND,
     ASID_ACTIONABLEAIR,
+    ASID_ACTIONABLESHIELD,
     ASID_DAMAGEAIR,
-    ASID_CROUCH,
     ASID_ANY,
 };
 
@@ -86,7 +91,6 @@ enum custom_asid_groups
 
 static u32 lz77Compress(u8 *uncompressed_text, u32 uncompressed_size, u8 *compressed_text, u8 pointer_length_width);
 static u32 lz77Decompress(u8 *compressed_text, u8 *uncompressed_text);
-static float GetAngleOutOfDeadzone(float angle, int lastSDIWasCardinal);
 static void DistributeChances(s16 *chances[], unsigned int chance_count);
 static void ReboundChances(s16 *chances[], unsigned int chance_count, int just_changed_option);
 static int IsTechAnim(int state);
@@ -98,14 +102,23 @@ static int IsHitlagVictim(GOBJ *character);
 static int InShieldStun(int state);
 int CustomTDI_Update(GOBJ *gobj);
 void CustomTDI_Destroy(GOBJ *gobj);
-void CustomTDI_Apply(GOBJ *cpu, GOBJ *hmn, CustomTDI *di);
+int CustomTDI_DirectionFactor(GOBJ *cpu, GOBJ *hmn, CustomTDI *di);
 void CPUResetVars(void);
 void Lab_ChangeAdvCounterHitNumber(GOBJ *menu_gobj, int value);
 void Lab_ChangeAdvCounterLogic(GOBJ *menu_gobj, int value);
 void Lab_ChangeInputs(GOBJ *menu_gobj, int value);
 void Lab_ChangeAlterInputsFrame(GOBJ *menu_gobj, int value);
 int Lab_SetAlterInputsMenuOptions(GOBJ *menu_gobj);
+void Lab_ChangeActionNumber(GOBJ *menu_gobj, int value);
+void Lab_ChangeDisplay(GOBJ *menu_gobj, int value);
+void Lab_ChangeDisplayPreset(GOBJ *menu_gobj, int value);
+void Lab_SetActionLogState(GOBJ *menu_gobj);
+void ActionLog_GX(GOBJ *gobj, int pass);
+void ActionLog_Think(void);
+void HitboxTrails_GX(GOBJ *gobj, int pass);
+void HitboxTrails_Think(void);
 void DIDraw_Init(void);
+void DIDraw_Reset(int ply);
 void DIDraw_Update(void);
 void DIDraw_GX(void);
 
@@ -121,12 +134,7 @@ static CPUAction Lab_CPUActionShield[] = {
         .isLast    = 1,
     },
     {
-        .state     = ASID_GUARDREFLECT,
-        .input     = PAD_TRIGGER_R,
-        .isLast    = 1,
-    },
-    {
-        .state     = ASID_GUARD,
+        .state     = ASID_ACTIONABLESHIELD,
         .input     = PAD_TRIGGER_R,
         .isLast    = 1,
     },
@@ -134,7 +142,7 @@ static CPUAction Lab_CPUActionShield[] = {
 };
 static CPUAction Lab_CPUActionGrab[] = {
     {
-        .state     = ASID_GUARD,
+        .state     = ASID_ACTIONABLESHIELD,
         .input     = PAD_BUTTON_A | PAD_TRIGGER_R,
         .isLast    = 1,
     },
@@ -145,14 +153,60 @@ static CPUAction Lab_CPUActionGrab[] = {
     },
     ActionEnd
 };
-static CPUAction Lab_CPUActionUpB[] = {
+static CPUAction Lab_CPUActionRunUpGrab[] = {
     {
-        .state     = ASID_GUARD,
-        .input     = PAD_TRIGGER_R | PAD_BUTTON_X,
+        .state     = ASID_ACTIONABLEGROUND,
+        .stickX    = 127,
+        .stickDir  = STCKDIR_TOWARD,
     },
     {
-        .state     = ASID_GUARD,
-        .input     = PAD_BUTTON_X,
+        .state     = ASID_TURN,
+        .stickX    = 127,
+        .stickDir  = STCKDIR_TOWARD,
+    },
+    {
+        .state     = ASID_DASH,
+        .stickX    = 127,
+        .stickDir  = STCKDIR_TOWARD,
+        .input     = PAD_BUTTON_Y,
+    },
+    {
+        .state     = ASID_KNEEBEND,
+        .input     = PAD_TRIGGER_Z,
+        .isLast    = 1,
+    },
+    ActionEnd
+};
+static CPUAction Lab_CPUActionDashAttack[] = {
+    {
+        .state     = ASID_ACTIONABLEGROUND,
+        .stickX    = 127,
+        .stickDir  = STCKDIR_TOWARD,
+    },
+    {
+        .state     = ASID_TURN,
+        .stickX    = 127,
+        .stickDir  = STCKDIR_TOWARD,
+    },
+    {
+        .state     = ASID_DASH,
+        .stickX    = 127,
+        .stickDir  = STCKDIR_TOWARD,
+        .frameLow  = 5,
+        .input     = PAD_BUTTON_A,
+        .isLast    = 1,
+    },
+    {
+        .state     = ASID_DASH,
+        .stickX    = 127,
+        .stickDir  = STCKDIR_TOWARD,
+    },
+    ActionEnd
+};
+static CPUAction Lab_CPUActionUpB[] = {
+    {
+        .state     = ASID_ACTIONABLESHIELD,
+        .input     = PAD_TRIGGER_R | PAD_BUTTON_X,
     },
     {
         .state     = ASID_KNEEBEND,
@@ -170,12 +224,8 @@ static CPUAction Lab_CPUActionUpB[] = {
 };
 static CPUAction Lab_CPUActionSideBToward[] = {
     {
-        .state     = ASID_GUARD,
+        .state     = ASID_ACTIONABLESHIELD,
         .input     = PAD_TRIGGER_R | PAD_BUTTON_X,
-    },
-    {
-        .state     = ASID_GUARD,
-        .input     = PAD_BUTTON_X,
     },
     {
         .state     = ASID_ACTIONABLE,
@@ -188,12 +238,8 @@ static CPUAction Lab_CPUActionSideBToward[] = {
 };
 static CPUAction Lab_CPUActionSideBAway[] = {
     {
-        .state     = ASID_GUARD,
+        .state     = ASID_ACTIONABLESHIELD,
         .input     = PAD_TRIGGER_R | PAD_BUTTON_X,
-    },
-    {
-        .state     = ASID_GUARD,
-        .input     = PAD_BUTTON_X,
     },
     {
         .state     = ASID_ACTIONABLE,
@@ -206,13 +252,8 @@ static CPUAction Lab_CPUActionSideBAway[] = {
 };
 static CPUAction Lab_CPUActionDownB[] = {
     {
-        .state     = ASID_GUARD,
+        .state     = ASID_ACTIONABLESHIELD,
         .input     = PAD_TRIGGER_R | PAD_BUTTON_X,
-    },
-    {
-        .state     = ASID_GUARD,
-        .input     = PAD_BUTTON_X,
-        .isLast    = 1,
     },
     {
         .state     = ASID_ACTIONABLE,
@@ -224,15 +265,9 @@ static CPUAction Lab_CPUActionDownB[] = {
 };
 static CPUAction Lab_CPUActionNeutralB[] = {
     {
-        .state     = ASID_GUARD,
+        .state     = ASID_ACTIONABLESHIELD,
         .input     = PAD_TRIGGER_R | PAD_BUTTON_X,
     },
-    {
-        .state     = ASID_GUARD,
-        .input     = PAD_BUTTON_X,
-        .isLast    = 1,
-    },
-
     {
         .state     = ASID_ACTIONABLE,
         .input     = PAD_BUTTON_B,
@@ -252,7 +287,7 @@ static CPUAction Lab_CPUActionSpotdodge[] = {
         .input     = PAD_TRIGGER_R,
     },
     {
-        .state     = ASID_GUARDREFLECT,
+        .state     = ASID_ACTIONABLESHIELD,
         .stickY    = -127,
         .input     = PAD_TRIGGER_R,
     },
@@ -264,7 +299,7 @@ static CPUAction Lab_CPUActionSpotdodge[] = {
 };
 static CPUAction Lab_CPUActionRollAway[] = {
     {
-        .state     = ASID_GUARD,
+        .state     = ASID_ACTIONABLESHIELD,
         .stickX    = 127,
         .input     = PAD_TRIGGER_R,
         .isLast    = 1,
@@ -273,19 +308,12 @@ static CPUAction Lab_CPUActionRollAway[] = {
     {
         .state     = ASID_ACTIONABLEGROUND,
         .input     = PAD_TRIGGER_R,
-    },
-    {
-        .state     = ASID_GUARDREFLECT,
-        .stickX    = 127,
-        .input     = PAD_TRIGGER_R,
-        .isLast    = 1,
-        .stickDir  = STCKDIR_AWAY,
     },
     ActionEnd
 };
 static CPUAction Lab_CPUActionRollTowards[] = {
     {
-        .state     = ASID_GUARD,
+        .state     = ASID_ACTIONABLESHIELD,
         .stickX    = 127,
         .input     = PAD_TRIGGER_R,
         .isLast    = 1,
@@ -294,19 +322,12 @@ static CPUAction Lab_CPUActionRollTowards[] = {
     {
         .state     = ASID_ACTIONABLEGROUND,
         .input     = PAD_TRIGGER_R,
-    },
-    {
-        .state     = ASID_GUARDREFLECT,
-        .stickX    = 127,
-        .input     = PAD_TRIGGER_R,
-        .isLast    = 1,
-        .stickDir  = STCKDIR_TOWARD,
     },
     ActionEnd
 };
 static CPUAction Lab_CPUActionRollRandom[] = {
     {
-        .state     = ASID_GUARD,
+        .state     = ASID_ACTIONABLESHIELD,
         .stickX    = 127,
         .input     = PAD_TRIGGER_R,
         .isLast    = 1,
@@ -316,18 +337,11 @@ static CPUAction Lab_CPUActionRollRandom[] = {
         .state     = ASID_ACTIONABLEGROUND,
         .input     = PAD_TRIGGER_R,
     },
-    {
-        .state     = ASID_GUARDREFLECT,
-        .stickX    = 127,
-        .input     = PAD_TRIGGER_R,
-        .isLast    = 1,
-        .stickDir  = STICKDIR_RDM,
-    },
     ActionEnd
 };
 static CPUAction Lab_CPUActionNair[] = {
     {
-        .state     = ASID_GUARD,
+        .state     = ASID_ACTIONABLESHIELD,
         .input     = PAD_TRIGGER_R | PAD_BUTTON_X,
     },
     {
@@ -343,7 +357,7 @@ static CPUAction Lab_CPUActionNair[] = {
 };
 static CPUAction Lab_CPUActionFair[] = {
     {
-        .state     = ASID_GUARD,
+        .state     = ASID_ACTIONABLESHIELD,
         .input     = PAD_TRIGGER_R | PAD_BUTTON_X,
     },
     {
@@ -360,7 +374,7 @@ static CPUAction Lab_CPUActionFair[] = {
 };
 static CPUAction Lab_CPUActionDair[] = {
     {
-        .state     = ASID_GUARD,
+        .state     = ASID_ACTIONABLESHIELD,
         .input     = PAD_TRIGGER_R | PAD_BUTTON_X,
     },
     {
@@ -376,7 +390,7 @@ static CPUAction Lab_CPUActionDair[] = {
 };
 static CPUAction Lab_CPUActionBair[] = {
     {
-        .state     = ASID_GUARD,
+        .state     = ASID_ACTIONABLESHIELD,
         .input     = PAD_TRIGGER_R | PAD_BUTTON_X,
     },
     {
@@ -393,7 +407,7 @@ static CPUAction Lab_CPUActionBair[] = {
 };
 static CPUAction Lab_CPUActionUair[] = {
     {
-        .state     = ASID_GUARD,
+        .state     = ASID_ACTIONABLESHIELD,
         .input     = PAD_TRIGGER_R | PAD_BUTTON_X,
     },
     {
@@ -409,7 +423,7 @@ static CPUAction Lab_CPUActionUair[] = {
 };
 static CPUAction Lab_CPUActionJump[] = {
     {
-        .state     = ASID_GUARD,
+        .state     = ASID_ACTIONABLESHIELD,
         .input     = PAD_TRIGGER_R | PAD_BUTTON_X,
     },
     {
@@ -425,7 +439,7 @@ static CPUAction Lab_CPUActionJump[] = {
 };
 static CPUAction Lab_CPUActionJumpFull[] = {
     {
-        .state     = ASID_GUARD,
+        .state     = ASID_ACTIONABLESHIELD,
         .input     = PAD_TRIGGER_R | PAD_BUTTON_X,
     },
     {
@@ -612,7 +626,7 @@ static CPUAction Lab_CPUActionFSmash[] = {
 };
 static CPUAction Lab_CPUActionUpSmashOOS[] = {
     {
-        .state     = ASID_GUARD,
+        .state     = ASID_ACTIONABLESHIELD,
         .input     = PAD_TRIGGER_R | PAD_BUTTON_X,
     },
     {
@@ -624,7 +638,7 @@ static CPUAction Lab_CPUActionUpSmashOOS[] = {
 };
 static CPUAction Lab_CPUActionWavedashAway[] = {
     {
-        .state     = ASID_GUARD,
+        .state     = ASID_ACTIONABLESHIELD,
         .input     = PAD_TRIGGER_R | PAD_BUTTON_X,
     },
     {
@@ -643,7 +657,7 @@ static CPUAction Lab_CPUActionWavedashAway[] = {
 };
 static CPUAction Lab_CPUActionWavedashTowards[] = {
     {
-        .state     = ASID_GUARD,
+        .state     = ASID_ACTIONABLESHIELD,
         .input     = PAD_TRIGGER_R | PAD_BUTTON_X,
     },
     {
@@ -662,7 +676,7 @@ static CPUAction Lab_CPUActionWavedashTowards[] = {
 };
 static CPUAction Lab_CPUActionWavedashDown[] = {
     {
-        .state     = ASID_GUARD,
+        .state     = ASID_ACTIONABLESHIELD,
         .input     = PAD_TRIGGER_R | PAD_BUTTON_X,
     },
     {
@@ -732,6 +746,7 @@ static CPUAction *Lab_CPUActions[] = {
     0,
     Lab_CPUActionShield,
     Lab_CPUActionGrab,
+    Lab_CPUActionRunUpGrab,
     Lab_CPUActionUpB,
     Lab_CPUActionSideBToward,
     Lab_CPUActionSideBAway,
@@ -758,6 +773,7 @@ static CPUAction *Lab_CPUActions[] = {
     Lab_CPUActionFTilt,
     Lab_CPUActionUTilt,
     Lab_CPUActionDTilt,
+    Lab_CPUActionDashAttack,
     Lab_CPUActionUSmash,
     Lab_CPUActionDSmash,
     Lab_CPUActionFSmash,
@@ -786,6 +802,7 @@ enum CPU_ACTIONS
     
     CPUACT_SHIELD = CPUACT_NORMAL_START,
     CPUACT_GRAB,
+    CPUACT_RUNUPGRAB,
     CPUACT_UPB,
     CPUACT_SIDEBTOWARD,
     CPUACT_SIDEBAWAY,
@@ -812,6 +829,7 @@ enum CPU_ACTIONS
     CPUACT_FTILT,
     CPUACT_UTILT,
     CPUACT_DTILT,
+    CPUACT_DASHATTACK,
     CPUACT_USMASH,
     CPUACT_DSMASH,
     CPUACT_FSMASH,
@@ -840,15 +858,19 @@ enum CPU_ACTIONS
 #define SLOT_ACTIONS CPUACT_SLOT1, CPUACT_SLOT2, CPUACT_SLOT3, CPUACT_SLOT4, CPUACT_SLOT5, CPUACT_SLOT6, CPUACT_SLOT_RANDOM
 #define SLOT_NAMES "Play Slot 1", "Play Slot 2", "Play Slot 3", "Play Slot 4", "Play Slot 5", "Play Slot 6", "Play Random Slot"
 
-static u8 CPUCounterActionsGround[] = {CPUACT_NONE, CPUACT_SPOTDODGE, CPUACT_SHIELD, CPUACT_GRAB, CPUACT_UPB, CPUACT_SIDEBTOWARD, CPUACT_SIDEBAWAY, CPUACT_DOWNB, CPUACT_NEUTRALB, CPUACT_USMASH, CPUACT_DSMASH, CPUACT_FSMASH, CPUACT_ROLLAWAY, CPUACT_ROLLTOWARDS, CPUACT_ROLLRDM, CPUACT_NAIR, CPUACT_FAIR, CPUACT_DAIR, CPUACT_BAIR, CPUACT_UAIR, CPUACT_JAB, CPUACT_FTILT, CPUACT_UTILT, CPUACT_DTILT, CPUACT_SHORTHOP, CPUACT_FULLHOP, CPUACT_WAVEDASH_AWAY, CPUACT_WAVEDASH_TOWARDS, CPUACT_WAVEDASH_DOWN, CPUACT_DASH_AWAY, CPUACT_DASH_TOWARDS, SLOT_ACTIONS, CPUACT_RANDOMADV, CPUACT_RANDOM};
+static u8 CPUCounterActionsGround[] = {CPUACT_NONE, CPUACT_SPOTDODGE, CPUACT_SHIELD, CPUACT_RUNUPGRAB, CPUACT_UPB, CPUACT_SIDEBTOWARD, CPUACT_SIDEBAWAY, CPUACT_DOWNB, CPUACT_NEUTRALB, CPUACT_USMASH, CPUACT_DSMASH, CPUACT_FSMASH, CPUACT_ROLLAWAY, CPUACT_ROLLTOWARDS, CPUACT_ROLLRDM, CPUACT_NAIR, CPUACT_FAIR, CPUACT_DAIR, CPUACT_BAIR, CPUACT_UAIR, CPUACT_JAB, CPUACT_FTILT, CPUACT_UTILT, CPUACT_DTILT, CPUACT_DASHATTACK, CPUACT_SHORTHOP, CPUACT_FULLHOP, CPUACT_WAVEDASH_AWAY, CPUACT_WAVEDASH_TOWARDS, CPUACT_WAVEDASH_DOWN, CPUACT_DASH_AWAY, CPUACT_DASH_TOWARDS, SLOT_ACTIONS, CPUACT_RANDOMADV, CPUACT_RANDOM};
 
 static u8 CPUCounterActionsAir[] = {CPUACT_NONE, CPUACT_AIRDODGE, CPUACT_JUMPAWAY, CPUACT_JUMPTOWARDS, CPUACT_JUMPNEUTRAL, CPUACT_UPB, CPUACT_SIDEBTOWARD, CPUACT_SIDEBAWAY, CPUACT_DOWNB, CPUACT_NEUTRALB, CPUACT_NAIR, CPUACT_FAIR, CPUACT_DAIR, CPUACT_BAIR, CPUACT_UAIR, CPUACT_FFTUMBLE, CPUACT_FFWIGGLE, SLOT_ACTIONS, CPUACT_RANDOMADV, CPUACT_RANDOM};
 
 static u8 CPUCounterActionsShield[] = {CPUACT_NONE, CPUACT_GRAB, CPUACT_SHORTHOP, CPUACT_FULLHOP, CPUACT_SPOTDODGE, CPUACT_ROLLAWAY, CPUACT_ROLLTOWARDS, CPUACT_ROLLRDM, CPUACT_USMASHOOS, CPUACT_UPB, CPUACT_DOWNB, CPUACT_NAIR, CPUACT_FAIR, CPUACT_DAIR, CPUACT_BAIR, CPUACT_UAIR, CPUACT_WAVEDASH_AWAY, CPUACT_WAVEDASH_TOWARDS, CPUACT_WAVEDASH_DOWN, SLOT_ACTIONS, CPUACT_RANDOMADV, CPUACT_RANDOM};
 
-static const char *LabValues_CounterGround[] = {"None", "Spotdodge", "Shield", "Grab", "Up B", "Side B Toward", "Side B Away", "Down B", "Neutral B", "Up Smash", "Down Smash", "Forward Smash", "Roll Away", "Roll Towards", "Roll Random", "Neutral Air", "Forward Air", "Down Air", "Back Air", "Up Air", "Jab", "Forward Tilt", "Up Tilt", "Down Tilt", "Short Hop", "Full Hop", "Wavedash Away", "Wavedash Towards", "Wavedash Down", "Dash Back", "Dash Through", SLOT_NAMES, "Random Advanced", "Random"};
+static const char *LabValues_CounterGround[] = {"None", "Spotdodge", "Shield", "Grab", "Up B", "Side B Toward", "Side B Away", "Down B", "Neutral B", "Up Smash", "Down Smash", "Forward Smash", "Roll Away", "Roll Towards", "Roll Random", "Neutral Air", "Forward Air", "Down Air", "Back Air", "Up Air", "Jab", "Forward Tilt", "Up Tilt", "Down Tilt", "Dash Attack", "Short Hop", "Full Hop", "Wavedash Away", "Wavedash Towards", "Wavedash Down", "Dash Back", "Dash Through", SLOT_NAMES, "Random Advanced", "Random"};
 static const char *LabValues_CounterAir[] = {"None", "Airdodge", "Jump Away", "Jump Towards", "Jump Neutral", "Up B", "Side B Toward", "Side B Away", "Down B", "Neutral B", "Neutral Air", "Forward Air", "Down Air", "Back Air", "Up Air", "Tumble Fastfall", "Wiggle Fastfall", SLOT_NAMES, "Random Advanced", "Random"};
 static const char *LabValues_CounterShield[] = {"None", "Grab", "Short Hop", "Full Hop", "Spotdodge", "Roll Away", "Roll Towards", "Roll Random", "Up Smash", "Up B", "Down B", "Neutral Air", "Forward Air", "Down Air", "Back Air", "Up Air", "Wavedash Away", "Wavedash Towards", "Wavedash Down", SLOT_NAMES, "Random Advanced", "Random"};
+
+static u8 CPUCounterActionsGroundRandom[] = {CPUACT_SPOTDODGE, CPUACT_RUNUPGRAB, CPUACT_FSMASH, CPUACT_ROLLRDM, CPUACT_NAIR, CPUACT_FAIR, CPUACT_JAB, CPUACT_FTILT, CPUACT_DTILT, CPUACT_DASHATTACK, CPUACT_DASH_AWAY, CPUACT_DASH_TOWARDS};
+static u8 CPUCounterActionsAirRandom[] = {CPUACT_AIRDODGE, CPUACT_JUMPNEUTRAL, CPUACT_NAIR, CPUACT_FAIR, CPUACT_DAIR, CPUACT_FFWIGGLE};
+static u8 CPUCounterActionsShieldRandom[] = {CPUACT_GRAB, CPUACT_FULLHOP, CPUACT_SPOTDODGE, CPUACT_ROLLRDM, CPUACT_USMASHOOS, CPUACT_NAIR, CPUACT_FAIR, CPUACT_DAIR, CPUACT_WAVEDASH_AWAY};
 
 // MENUS ###################################################
 
@@ -863,7 +885,8 @@ enum lab_option
     OPTLAB_INFODISP_CPU,
     OPTLAB_CHAR_RNG,
     OPTLAB_STAGE,
-    OPTLAB_HELP,
+    OPTLAB_DISPLAY,
+    OPTLAB_CONTROLS,
     OPTLAB_EXIT,
 
     OPTLAB_COUNT
@@ -919,12 +942,16 @@ static EventOption LabOptions_Main[OPTLAB_COUNT] = {
         .desc = {"Configure stage behavior."},
     },
     {
-        .kind = OPTKIND_INFO,
-        .name = "Help",
-        .desc = {"D-Pad Left - Load State",
-                 "D-Pad Right - Save State",
-                 "D-Pad Down - Move CPU",
-                 "Hold R in the menu for turbo."},
+        .kind = OPTKIND_MENU,
+        .menu = &LabMenu_Display,
+        .name = "Display Options",
+        .desc = {"Configure what shows on-screen."},
+    },
+    {
+        .kind = OPTKIND_MENU,
+        .menu = &LabMenu_Controls,
+        .name = "Controls",
+        .desc = {"Change controls for lab options."}
     },
     {
         .kind = OPTKIND_FUNC,
@@ -938,6 +965,111 @@ static EventMenu LabMenu_Main = {
     .name = "Main Menu",
     .option_num = sizeof(LabOptions_Main) / sizeof(EventOption),
     .options = LabOptions_Main,
+    .shortcuts = &Lab_ShortcutList,
+};
+
+// CONTROLS MENU --------------------------------------------------------------
+
+enum lab_controls {
+    OPTCTRL_FRAME_ADVANCE,
+    OPTCTRL_FRAME_DECREMENT,
+    OPTCTRL_DPAD_UP,
+    OPTCTRL_DPAD_DOWN,
+    OPTCTRL_DPAD_LEFT,
+    OPTCTRL_DPAD_RIGHT,
+
+    OPTCTRL_COUNT
+};
+
+enum lab_dpad_up {
+    DPAD_U_TAUNT,
+    DPAD_U_DISABLED,
+};
+
+enum lab_dpad_down {
+    DPAD_D_PLACE_CPU,
+    DPAD_D_DISABLED,
+    DPAD_D_FRAME_ADVANCE,
+};
+
+enum lab_dpad_left {
+    DPAD_L_LOAD_STATE,
+    DPAD_L_DISABLED,
+};
+
+enum lab_dpad_right {
+    DPAD_R_SAVE_STATE,
+    DPAD_R_DISABLED,
+};
+
+// These options are serialized: do not re-order
+static const char *LabOptions_FrameAdvButton[] = {"L", "Z", "X", "Y", "R"};
+static const char *LabOptions_FrameDecButton[] = {"None", "Z", "L", "R", "X", "Y"};
+static const char *LabOptions_DPadUp[] = {"Taunt", "None"};
+static const char *LabOptions_DPadDown[] = {"Place CPU", "None", "Frame Advance"};
+static const char *LabOptions_DPadLeft[] = {"Load State", "None"};
+static const char *LabOptions_DPadRight[] = {"Save State", "None"};
+
+static int LabValues_FrameAdvButtonMask[] = {HSD_TRIGGER_L, HSD_TRIGGER_Z, HSD_BUTTON_X, HSD_BUTTON_Y, HSD_TRIGGER_R};
+static int LabValues_FrameDecButtonMask[] = {0, HSD_TRIGGER_Z, HSD_TRIGGER_L, HSD_TRIGGER_R, HSD_BUTTON_X, HSD_BUTTON_Y};
+
+static EventOption LabOptions_Controls[OPTCTRL_COUNT] = {
+    {
+        .kind = OPTKIND_STRING,
+        .name = "Frame Advance Button",
+        .desc = {"The button to advance a frame.",
+                 "Hold to advance at normal speed."},
+        .values = LabOptions_FrameAdvButton,
+        .value_num = countof(LabOptions_FrameAdvButton),
+        .OnChange = Lab_ChangeFrameAdvanceButton,
+    },
+    {
+        .kind = OPTKIND_STRING,
+        .name = "Frame Decrement Button",
+        .desc = {"The button to go back one frame.",
+                 "Only works during playback."},
+        .values = LabOptions_FrameDecButton,
+        .value_num = countof(LabOptions_FrameDecButton),
+        .OnChange = Lab_ChangeFrameDecrementButton,
+    },
+    {
+        .kind = OPTKIND_STRING,
+        .name = "DPad Up",
+        .desc = {"Change what D-pad up does."},
+        .values = LabOptions_DPadUp,
+        .value_num = countof(LabOptions_DPadUp),
+        .OnChange = Lab_ChangeDPadOption,
+    },
+    {
+        .kind = OPTKIND_STRING,
+        .name = "DPad Down",
+        .desc = {"Change what D-pad down does."},
+        .values = LabOptions_DPadDown,
+        .value_num = countof(LabOptions_DPadDown),
+        .OnChange = Lab_ChangeDPadOption,
+    },
+    {
+        .kind = OPTKIND_STRING,
+        .name = "DPad Left",
+        .desc = {"Change what D-pad left does."},
+        .values = LabOptions_DPadLeft,
+        .value_num = countof(LabOptions_DPadLeft),
+        .OnChange = Lab_ChangeDPadOption,
+    },
+    {
+        .kind = OPTKIND_STRING,
+        .name = "DPad Right",
+        .desc = {"Change what D-pad right does."},
+        .values = LabOptions_DPadRight,
+        .value_num = countof(LabOptions_DPadRight),
+        .OnChange = Lab_ChangeDPadOption,
+    },
+};
+
+static EventMenu LabMenu_Controls = {
+    .name = "Controls",
+    .option_num = sizeof(LabOptions_Controls) / sizeof(EventOption),
+    .options = LabOptions_Controls,
     .shortcuts = &Lab_ShortcutList,
 };
 
@@ -959,24 +1091,18 @@ enum model_display {
 enum gen_option
 {
     OPTGEN_FRAME,
-    OPTGEN_FRAMEBTN,
     OPTGEN_HMNPCNT,
     OPTGEN_HMNPCNTLOCK,
-    OPTGEN_MODEL,
-    OPTGEN_HIT,
-    OPTGEN_ITEMGRAB,
-    OPTGEN_COLL,
     OPTGEN_CAM,
     OPTGEN_OVERLAYS_HMN,
     OPTGEN_OVERLAYS_CPU,
-    OPTGEN_HUD,
     OPTGEN_DI,
     OPTGEN_INPUT,
     OPTGEN_SPEED,
     OPTGEN_STALE,
-    OPTGEN_POWERSHIELD,
-    OPTGEN_TAUNT,
     OPTGEN_CUSTOM_OSD,
+    OPTLAB_ACTIONLOG,
+    OPTLAB_HITBOXTRAILS,
     OPTGEN_OSDS,
 
     OPTGEN_COUNT
@@ -984,11 +1110,6 @@ enum gen_option
 
 static const char *LabOptions_CamMode[] = {"Normal", "Zoom", "Fixed", "Advanced", "Static"};
 static const char *LabOptions_ShowInputs[] = {"Off", "HMN", "CPU", "HMN and CPU"};
-static const char *LabOptions_FrameAdvButton[] = {"L", "Z", "X", "Y", "R"};
-
-static const char *LabOptions_ModelDisplay[] = {"On", "Stage Only", "Characters Only"};
-static const bool LabValues_CharacterModelDisplay[] = {true, false, true};
-static const bool LabValues_StageModelDisplay[] = {true, true, false};
 
 static float LabOptions_GameSpeeds[] = {1.f, 5.f/6.f, 2.f/3.f, 1.f/2.f, 1.f/4.f};
 static const char *LabOptions_GameSpeedText[] = {"1", "5/6", "2/3", "1/2", "1/4"};
@@ -997,18 +1118,7 @@ static EventOption LabOptions_General[OPTGEN_COUNT] = {
     {
         .kind = OPTKIND_TOGGLE,
         .name = "Frame Advance",
-        .desc = {"Enable frame advance. Press to advance one",
-                 "frame. Hold to advance at normal speed."},
-        .OnChange = Lab_ChangeFrameAdvance,
-    },
-    {
-        .kind = OPTKIND_STRING,
-        .value_num = sizeof(LabOptions_FrameAdvButton) / 4,
-        .name = "Frame Advance Button",
-        .desc = {"Choose which button will advance the frame"},
-        .values = LabOptions_FrameAdvButton,
-        .OnChange = Lab_ChangeFrameAdvanceButton,
-        .disable = 1,
+        .desc = {"Enable frame advance."},
     },
     {
         .kind = OPTKIND_INT,
@@ -1023,40 +1133,6 @@ static EventOption LabOptions_General[OPTGEN_COUNT] = {
         .name = "Lock Player Percent",
         .desc = {"Locks Player percent to current percent"},
         .OnChange = Lab_ChangePlayerLockPercent,
-    },
-    {
-        .kind = OPTKIND_STRING,
-        .value_num =
-            sizeof(LabOptions_ModelDisplay) / sizeof(*LabOptions_ModelDisplay),
-        .val = 0,
-        .name = "Model Display",
-        .desc = {"Toggle player and item model visibility."},
-        .values = LabOptions_ModelDisplay,
-        .OnChange = Lab_ChangeModelDisplay,
-    },
-    {
-        .kind = OPTKIND_TOGGLE,
-        .name = "Fighter Collision",
-        .desc = {"Toggle hitbox and hurtbox visualization.",
-                 "Hurtboxes: yellow=hurt, purple=ungrabbable, blue=shield.",
-                 "Hitboxes: (by priority) red, green, blue, purple."},
-        .OnChange = Lab_ChangeHitDisplay,
-    },
-    {
-        .kind = OPTKIND_TOGGLE,
-        .name = "Item Grab Sizes",
-        .desc = {"Toggle item grab range visualization.",
-                 "Blue=z-catch, light grey=grounded catch,",
-                 "dark grey=unknown"},
-        .OnChange = Lab_ChangeItemGrabDisplay,
-    },
-    {
-        .kind = OPTKIND_TOGGLE,
-        .name = "Environment Collision",
-        .desc = {"Toggle environment collision visualization.",
-                 "Also displays the players' ECB (environmental ",
-                 "collision box)."},
-        .OnChange = Lab_ChangeEnvCollDisplay,
     },
     {
         .kind = OPTKIND_STRING,
@@ -1081,13 +1157,6 @@ static EventOption LabOptions_General[OPTGEN_COUNT] = {
         .name = "CPU Color Overlays",
         .desc = {"Set up color indicators for",
                  "action states."},
-    },
-    {
-        .kind = OPTKIND_TOGGLE,
-        .val = 1,
-        .name = "HUD",
-        .desc = {"Toggle player percents and timer visibility."},
-        .OnChange = Lab_ChangeHUD,
     },
     {
         .kind = OPTKIND_TOGGLE,
@@ -1121,22 +1190,23 @@ static EventOption LabOptions_General[OPTGEN_COUNT] = {
                  "weaker the more they are used."},
     },
     {
-        .kind = OPTKIND_TOGGLE,
-        .name = "Powershield Projectiles",
-        .desc = {"Projectiles will always be reflected when shielded."},
-    },
-    {
-        .kind = OPTKIND_TOGGLE,
-        .val = 1,
-        .name = "Disable Taunt",
-        .desc = {"Disable the taunt button (D-pad up)"},
-        .OnChange = Lab_ChangeTauntEnabled,
-    },
-    {
         .kind = OPTKIND_MENU,
         .menu = &LabMenu_CustomOSDs,
         .name = "Custom OSDs",
         .desc = {"Set up a display for any action state."},
+    },
+    {
+        .kind = OPTKIND_MENU,
+        .menu = &LabMenu_ActionLog,
+        .name = "Action Log",
+        .desc = {"Create a log describing your action states,",
+                 "similar to the ledgedash event."},
+    },
+    {
+        .kind = OPTKIND_MENU,
+        .menu = &LabMenu_HitboxTrails,
+        .name = "Hitbox Trails",
+        .desc = {"Create a trail of your hitboxes to visualize spacing."}
     },
     {
         .kind = OPTKIND_MENU,
@@ -1149,6 +1219,136 @@ static EventMenu LabMenu_General = {
     .name = "General",
     .option_num = sizeof(LabOptions_General) / sizeof(EventOption),
     .options = LabOptions_General,
+};
+
+// DISPLAY MENU --------------------------------------------------------------
+
+enum {
+    OPTDISP_PRESET,
+    OPTDISP_TOGGLE_START,
+    OPTDISP_HUD = OPTDISP_TOGGLE_START,
+    OPTDISP_HITBOXES,
+    OPTDISP_CHAR_MODEL,
+    OPTDISP_ENV,
+    OPTDISP_STAGE_MODEL,
+    OPTDISP_EFFECTS,
+    OPTDISP_ITEMGRAB,
+
+    OPTDISP_COUNT
+};
+
+typedef struct DisplayPreset {
+    u32 hud : 1;
+    u32 hitboxes : 2;
+    u32 models : 2;
+    u32 env : 1;
+    u32 stage : 1;
+    u32 effects : 1;
+    u32 item_grab : 1;
+} DisplayPreset;
+
+static const char *LabOptions_DisplayPresets[] = {
+    "Default",
+    "Hitboxes",
+    "Environment",
+};
+
+static const DisplayPreset LabValues_DisplayPresetFlags[] = {
+    {
+        .hud = 1,
+        .models = 3,
+        .stage = 1,
+        .effects = 1,
+    },
+    {
+        .hud = 1,
+        .hitboxes = 3,
+        .stage = 1,
+        .effects = 1,
+    },
+    {
+        .hud = 1,
+        .env = 1,
+        .stage = 1,
+    },
+};
+
+static const char *LabOptions_DisplayPerChar[] = { "None", "HMN", "CPU", "Both" };
+
+static EventOption LabOptions_Display[OPTDISP_COUNT] = {
+    {
+        .kind = OPTKIND_STRING,
+        .name = "Preset",
+        .desc = {"Cycle through common display settings."},
+        .values = LabOptions_DisplayPresets,
+        .value_num = countof(LabOptions_DisplayPresets),
+        .OnChange = Lab_ChangeDisplayPreset,
+    },
+
+    {
+        .kind = OPTKIND_TOGGLE,
+        .val = 1,
+        .name = "HUD",
+        .desc = {"Show fighter percents and timer."},
+        .OnChange = Lab_ChangeDisplay,
+    },
+    {
+        .kind = OPTKIND_STRING,
+        .name = "Hitboxes",
+        .desc = {"Toggle hitbox and hurtbox visualization.",
+                 "Hurtboxes: yellow=hurt, purple=ungrabbable, blue=shield.",
+                 "Hitboxes: (by priority) red, green, blue, purple."},
+        .values = LabOptions_DisplayPerChar,
+        .value_num = countof(LabOptions_DisplayPerChar),
+        .OnChange = Lab_ChangeDisplay,
+    },
+    {
+        .kind = OPTKIND_STRING,
+        .val = 3,
+        .name = "Character Models",
+        .desc = {"Show fighters."},
+        .values = LabOptions_DisplayPerChar,
+        .value_num = countof(LabOptions_DisplayPerChar),
+        .OnChange = Lab_ChangeDisplay,
+    },
+    {
+        .kind = OPTKIND_TOGGLE,
+        .name = "Environment Collision",
+        .desc = {"Toggle environment collision visualization.",
+                 "Also displays the players' ECB (environmental",
+                 "collision box)."},
+        .OnChange = Lab_ChangeDisplay,
+    },
+    {
+        .kind = OPTKIND_TOGGLE,
+        .val = 1,
+        .name = "Stage Model",
+        .desc = {"Show the stage."},
+        .OnChange = Lab_ChangeDisplay,
+    },
+    {
+        .kind = OPTKIND_TOGGLE,
+        .val = 1,
+        .name = "Effects",
+        .desc = {"Show or hide effects."},
+        .OnChange = Lab_ChangeDisplay,
+    },
+    {
+        .kind = OPTKIND_STRING,
+        .name = "Item Grab Sizes",
+        .desc = {"Toggle item grab range visualization.",
+                 "Blue=z-catch, light grey=grounded catch,",
+                 "dark grey=unknown"},
+        .values = LabOptions_DisplayPerChar,
+        .value_num = countof(LabOptions_DisplayPerChar),
+        .OnChange = Lab_ChangeDisplay,
+    },
+};
+
+static EventMenu LabMenu_Display = {
+    .name = "Display Options",
+    .option_num = countof(LabOptions_Display),
+    .options = LabOptions_Display,
 };
 
 // INFO DISPLAY MENU --------------------------------------------------------------
@@ -1353,7 +1553,7 @@ static const char *LabValues_CharacterRng_Misfire[] =
 static const char *LabValues_CharacterRng_Hammer[] =
     { "Default", "1", "2", "3", "4", "5", "6", "7", "8", "9" };
 static const char *LabValues_CharacterRng_NanaThrow[] =
-    { "Default", "Forward Throw", "Backward Throw", "Up Throw", "Down Throw" };
+    { "Default", "Forward Throw", "Backward Throw", "Up Throw", "Down Throw", "Forward/Down Throw" };
     
 static EventOption LabOptions_CharacterRngPeach[] = {
     {
@@ -1565,33 +1765,29 @@ static EventMenu LabMenu_CustomOSDs = {
     .options = LabOptions_CustomOSDs,
 };
 
-// OSDS MENU --------------------------------------------------------------
-
-// Enabled OSDs are stored as a bitmap in memory at the following bit positions.
-// These values must match the OSD IDs from "training-mode/Globals.s".
-// The order of the OSDs in this array must also match the order that they appear in LabOptions_OSDs.
-static int osd_memory_bit_position[] = {
-    0,  // Wavedash
-    1,  // L-Cancel
-    3,  // Act OoS Frame
-    5,  // Dashback
-    8,  // Fighter-specific
-    9,  // Powershield Frame
-    10, // SDI Inputs
-    12, // Lockout Timers
-    13, // Item Throw Interrupts
-    14, // Boost Grab
-    16, // Act OoLag
-    18, // Act OoAirborne
-    19, // Jump Cancel Timing
-    20, // Fastfall Timing
-    21, // Frame Advantage
-    22, // Combo Counter
-    24, // Grab Breakout
-    26, // Ledgedash Info
-    28, // Act OoHitstun
+static u8 LabOSD_ID[] = {
+    OSD_Wavedash,
+    OSD_LCancel,
+    OSD_ActOoS,
+    OSD_Dashback,
+    OSD_FighterSpecificTech,
+    OSD_Powershield,
+    OSD_SDI,
+    OSD_LockoutTimers,
+    OSD_RollAirdodgeInterrupt,
+    OSD_BoostGrab,
+    OSD_ActOoWait,
+    OSD_ActOoAirborne,
+    OSD_ActOoJumpSquat,
+    OSD_Fastfall,
+    OSD_FrameAdvantage,
+    OSD_ComboCounter,
+    OSD_GrabBreakout,
+    OSD_Ledge,
+    OSD_ActOoHitstun,
 };
 
+// Must match LabOSD_ID order
 static EventOption LabOptions_OSDs[] = {
     {
         .kind = OPTKIND_TOGGLE,
@@ -1696,6 +1892,168 @@ static EventMenu LabMenu_OSDs = {
     .options = LabOptions_OSDs,
 };
 
+// ACTION LOG --------------------------------------------------------------
+
+static u8 action_log[35];
+static u32 action_log_cur = countof(action_log); // start disabled
+
+#define ACTION_LOG_MAX 10
+
+enum action_log_option {
+    OPTACTIONLOG_NUMBER,
+    OPTACTIONLOG_ACTION,
+    OPTACTIONLOG_STATE,
+    OPTACTIONLOG_FRAME,
+    OPTACTIONLOG_LSTICK_X,
+    OPTACTIONLOG_LSTICK_Y,
+    OPTACTIONLOG_FASTFALL,
+    OPTACTIONLOG_IASA,
+
+    OPTACTIONLOG_COUNT
+};
+
+static EventOption LabOptions_ActionLog[ACTION_LOG_MAX][OPTACTIONLOG_COUNT];
+
+static char action_log_state_name_buffers[ACTION_LOG_MAX][32];
+
+static const char *LabValues_ActionLogBehaviour[ACTION_LOG_MAX] = {
+    "Start Log",
+    "Red",
+    "Green",
+    "Blue",
+    "Yellow",
+    "Orange",
+    "Cyan",
+    "Purple",
+    "White",
+    "Grey"
+};
+
+static GXColor action_colors[ACTION_LOG_MAX] = {
+    { 0x2a, 0x2a, 0x2a, 0xb4 }, // none
+    { 0xd5, 0x4e, 0x53, 0xb4 }, // red
+    { 0xb9, 0xca, 0x4a, 0xb4 }, // green
+    { 0x7a, 0xa6, 0xda, 0xb4 }, // blue
+    { 0xe7, 0xc5, 0x47, 0xb4 }, // yellow
+    { 0xe7, 0x8c, 0x45, 0xb4 }, // orange
+    { 0x70, 0xc0, 0xb1, 0xb4 }, // cyan
+    { 0xc3, 0x97, 0xd8, 0xb4 }, // purple
+    { 0xea, 0xea, 0xea, 0xb4 }, // white
+    { 0x96, 0x98, 0x96, 0xb4 }, // grey
+};
+
+static EventOption LabOptions_ActionLog_Default[OPTACTIONLOG_COUNT] = {
+    {
+        .kind = OPTKIND_INT,
+        .name = "Action Number",
+        .format = "%d",
+        .value_min = 1,
+        .value_num = ACTION_LOG_MAX,
+        .desc = {"What action to set."},
+        .OnChange = Lab_ChangeActionNumber,
+    },
+    {
+        .kind = OPTKIND_STRING,
+        .name = "Action Behaviour",
+        .values = LabValues_ActionLogBehaviour,
+        .value_num = countof(LabValues_ActionLogBehaviour),
+        .desc = {"What happens when this action registers."},
+    },
+    {
+        .kind = OPTKIND_FUNC,
+        .name = "Set State",
+        .desc = {"Set the required state for this action."},
+        .OnSelect = Lab_SetActionLogState,
+    },
+    {
+        .kind = OPTKIND_INT,
+        .value_num = 999,
+        .format = "%d",
+        .name = "State Frame",
+        .desc = {"Set the minimum state frame."},
+    },
+    {
+        .kind = OPTKIND_INT,
+        .value_min = -80,
+        .value_num = 161,
+        .val = 0,
+        .format = "%d",
+        .name = "Min Stick X",
+        .desc = {"Minimum lstick X value for this state to register."},
+    },
+    {
+        .kind = OPTKIND_INT,
+        .value_min = -80,
+        .value_num = 161,
+        .val = 0,
+        .format = "%d",
+        .name = "Min Stick Y",
+        .desc = {"Minimum lstick Y value for this state to register."},
+    },
+    {
+        .kind = OPTKIND_TOGGLE,
+        .name = "Fastfall",
+        .desc = {"Require this state to be in fast fall."},
+    },
+    {
+        .kind = OPTKIND_TOGGLE,
+        .name = "IASA",
+        .desc = {"Require this state to be in IASA."},
+    },
+};
+
+static EventMenu LabMenu_ActionLog = {
+    .name = "Action Log",
+    .option_num = sizeof(LabOptions_ActionLog[0]) / sizeof(EventOption),
+    .options = LabOptions_ActionLog[0],
+};
+
+// HITBOX TRAILS --------------------------------------------------------------
+
+typedef struct HitboxTrail {
+    Vec3 a;
+    Vec3 b;
+    float size;
+    GXColor color;
+    int frame_created;
+} HitboxTrail;
+
+static u32 hitbox_trail_i;
+static HitboxTrail hitbox_trails[64];
+
+enum hitbox_trails_option
+{
+    OPTHITBOXTRAILS_ENABLED,
+    OPTHITBOXTRAILS_DECAY,
+
+    OPTHITBOXTRAILS_COUNT
+};
+
+const u8 LabValues_HitboxTrailDecayConst[] = { 15, 10, 30, 0 };
+const u8 LabValues_HitboxTrailDecayFactor[] = { 4, 8, 2, 0 };
+const char *LabOptions_HitboxTrailDecay[] = { "Normal", "Fast", "Slow", "Off" };
+
+static EventOption LabOptions_HitboxTrails[OPTHITBOXTRAILS_COUNT] = {
+    {
+        .kind = OPTKIND_TOGGLE,
+        .name = "Enable",
+        .desc = {"Enable hitbox trails."},
+    },
+    {
+        .kind = OPTKIND_STRING,
+        .value_num = countof(LabOptions_HitboxTrailDecay),
+        .name = "Decay",
+        .desc = {"How quickly the hitbox will fade away."},
+        .values = LabOptions_HitboxTrailDecay,
+    },
+};
+
+static EventMenu LabMenu_HitboxTrails = {
+    .name = "Hitbox Trails",
+    .option_num = countof(LabOptions_HitboxTrails),
+    .options = LabOptions_HitboxTrails,
+};
+
 // CPU MENU --------------------------------------------------------------
 
 enum cpu_behave
@@ -1704,6 +2062,7 @@ enum cpu_behave
     CPUBEHAVE_SHIELD,
     CPUBEHAVE_CROUCH,
     CPUBEHAVE_JUMP,
+    CPUBEHAVE_POWERSHIELD,
 
     CPUBEHAVE_COUNT
 };
@@ -1805,7 +2164,6 @@ enum cpu_inf_shield {
 
 enum asdi
 {
-    ASDI_NONE,
     ASDI_AUTO,
     ASDI_AWAY,
     ASDI_TOWARD,
@@ -1819,13 +2177,14 @@ enum asdi
 
 enum sdi_dir
 {
+    SDIDIR_AUTO,
     SDIDIR_RANDOM,
     SDIDIR_AWAY,
     SDIDIR_TOWARD,
-    SDIDIR_UP,
-    SDIDIR_DOWN,
     SDIDIR_LEFT,
     SDIDIR_RIGHT,
+    SDIDIR_UP,
+    SDIDIR_DOWN,
 
     SDIDIR_COUNT
 };
@@ -1873,10 +2232,10 @@ enum cpu_option
 
 static const char *LabValues_Shield[] = {"Off", "On Until Hit", "On"};
 static const char *LabValues_ShieldDir[] = {"Neutral", "Up", "Towards", "Down", "Away"};
-static const char *LabValues_CPUBehave[] = {"Stand", "Shield", "Crouch", "Jump"};
+static const char *LabValues_CPUBehave[] = {"Stand", "Shield", "Crouch", "Jump", "Powershield"};
 static const char *LabValues_TDI[] = {"Random", "Inwards", "Outwards", "Natural", "Custom", "Random Custom", "None"};
-static const char *LabValues_ASDI[] = {"None", "Auto", "Away", "Towards", "Left", "Right", "Up", "Down"};
-static const char *LabValues_SDIDir[] = {"Random", "Away", "Towards", "Up", "Down", "Left", "Right"};
+static const char *LabValues_ASDI[] = {"Auto", "Away", "Towards", "Left", "Right", "Up", "Down"};
+static const char *LabValues_SDIDir[] = {"Auto", "Random", "Away", "Towards", "Left", "Right", "Up", "Down"};
 static const char *LabValues_Tech[] = {"Random", "In Place", "Away", "Towards", "None"};
 static const char *LabValues_Getup[] = {"Random", "Stand", "Away", "Towards", "Attack"};
 static const char *LabValues_GrabEscape[] = {"None", "Medium", "High", "Perfect"};
@@ -1952,7 +2311,6 @@ static EventOption LabOptions_CPU[OPTCPU_COUNT] = {
     {
         .kind = OPTKIND_STRING,
         .value_num = sizeof(LabValues_ASDI) / 4,
-        .val = 1,
         .name = "ASDI",
         .desc = {"Set CPU C-stick ASDI direction"},
         .values = LabValues_ASDI,
@@ -2119,7 +2477,6 @@ CounterInfo GetCounterInfo(void);
 static const char *LabValues_CounterLogic[] = {"Default", "Disable", "Custom"};
 
 #define ADV_COUNTER_COUNT 10
-#define ADV_COUNTER_SAVED_COUNT (OPTCTR_COUNT - OPTCTR_HITNUM - 1) 
 
 static EventOption LabOptions_AdvCounter[ADV_COUNTER_COUNT][OPTCTR_COUNT];
 
@@ -2314,8 +2671,8 @@ static EventOption LabOptions_Tech[OPTTECH_COUNT] = {
     {
         .kind = OPTKIND_TOGGLE,
         .name = "Tech Sound",
-        .desc = {"Toggle playing a sound when tech is",
-                 "distinguishable."},
+        .desc = {"Play a sound cue for reacting to techs.",
+                 "Only useful on console."},
     },
     {
         .kind = OPTKIND_STRING,
@@ -3229,7 +3586,7 @@ static Shortcut Lab_Shortcuts[] = {
     },
     {
         .button_mask = HSD_BUTTON_X,
-        .option = &LabOptions_General[OPTGEN_MODEL],
+        .option = &LabOptions_Display[OPTDISP_HITBOXES],
     },
     {
         .button_mask = HSD_BUTTON_DPAD_LEFT,
@@ -3247,9 +3604,359 @@ static Shortcut Lab_Shortcuts[] = {
         .button_mask = HSD_BUTTON_DPAD_DOWN,
         .option = &LabOptions_Main[OPTLAB_RECORD_OPTIONS],
     },
+    {
+        .button_mask = HSD_TRIGGER_Z,
+        .option = &LabOptions_Record[OPTREC_RESAVE],
+    },
 };
 
 static ShortcutList Lab_ShortcutList = {
     .count = countof(Lab_Shortcuts),
     .list = Lab_Shortcuts,
+};
+
+// State Name Lookup #########################################################
+
+static const char *action_state_name_lookup[] = {
+    "DeadDown",
+    "DeadLeft",
+    "DeadRight",
+    "DeadUp",
+    "DeadUpStar",
+    "DeadUpStarIce",
+    "Unused_0x6",
+    "Unused_0x7",
+    "DeadUpFallHitCamera",
+    "DeadUpFallIce",
+    "DeadUpFallHitCameraIce",
+    "Rebirth",
+    "Unused_0xC",
+    "RebirthWait",
+    "Wait",
+    "WalkSlow",
+    "WalkMiddle",
+    "WalkFast",
+    "Turn",
+    "TurnRun",
+    "Dash",
+    "Run",
+    "RunDirect",
+    "RunBrake",
+    "KneeBend",
+    "JumpF",
+    "JumpB",
+    "JumpAerialF",
+    "JumpAerialB",
+    "Fall",
+    "FallF",
+    "FallB",
+    "FallAerial",
+    "FallAerialF",
+    "FallAerialB",
+    "FallSpecial",
+    "FallSpecialF",
+    "FallSpecialB",
+    "DamageFall",
+    "Squat",
+    "SquatWait",
+    "SquatRv",
+    "Landing",
+    "LandingFallSpecial",
+    "Attack11",
+    "Attack12",
+    "Attack13",
+    "Attack100Start",
+    "Attack100Loop",
+    "Attack100End",
+    "AttackDash",
+    "AttackS3Hi",
+    "AttackS3HiS",
+    "AttackS3S",
+    "AttackS3LwS",
+    "AttackS3Lw",
+    "AttackHi3",
+    "AttackLw3",
+    "AttackS4Hi",
+    "AttackS4HiS",
+    "AttackS4S",
+    "AttackS4LwS",
+    "AttackS4Lw",
+    "AttackHi4",
+    "AttackLw4",
+    "AttackAirN",
+    "AttackAirF",
+    "AttackAirB",
+    "AttackAirHi",
+    "AttackAirLw",
+    "LandingAirN",
+    "LandingAirF",
+    "LandingAirB",
+    "LandingAirHi",
+    "LandingAirLw",
+    "DamageHi1",
+    "DamageHi2",
+    "DamageHi3",
+    "DamageN1",
+    "DamageN2",
+    "DamageN3",
+    "DamageLw1",
+    "DamageLw2",
+    "DamageLw3",
+    "DamageAir1",
+    "DamageAir2",
+    "DamageAir3",
+    "DamageFlyHi",
+    "DamageFlyN",
+    "DamageFlyLw",
+    "DamageFlyTop",
+    "DamageFlyRoll",
+    "LightGet",
+    "HeavyGet",
+    "LightThrowF",
+    "LightThrowB",
+    "LightThrowHi",
+    "LightThrowLw",
+    "LightThrowDash",
+    "LightThrowDrop",
+    "LightThrowAirF",
+    "LightThrowAirB",
+    "LightThrowAirHi",
+    "LightThrowAirLw",
+    "HeavyThrowF",
+    "HeavyThrowB",
+    "HeavyThrowHi",
+    "HeavyThrowLw",
+    "LightThrowF4",
+    "LightThrowB4",
+    "LightThrowHi4",
+    "LightThrowLw4",
+    "LightThrowAirF4",
+    "LightThrowAirB4",
+    "LightThrowAirHi4",
+    "LightThrowAirLw4",
+    "HeavyThrowF4",
+    "HeavyThrowB4",
+    "HeavyThrowHi4",
+    "HeavyThrowLw4",
+    "SwordSwing1",
+    "SwordSwing3",
+    "SwordSwing4",
+    "SwordSwingDash",
+    "BatSwing1",
+    "BatSwing3",
+    "BatSwing4",
+    "BatSwingDash",
+    "ParasolSwing1",
+    "ParasolSwing3",
+    "ParasolSwing4",
+    "ParasolSwingDash",
+    "HarisenSwing1",
+    "HarisenSwing3",
+    "HarisenSwing4",
+    "HarisenSwingDash",
+    "StarRodSwing1",
+    "StarRodSwing3",
+    "StarRodSwing4",
+    "StarRodSwingDash",
+    "LipStickSwing1",
+    "LipStickSwing3",
+    "LipStickSwing4",
+    "LipStickSwingDash",
+    "ItemParasolOpen",
+    "ItemParasolFall",
+    "ItemParasolFallSpecial",
+    "ItemParasolDamageFall",
+    "LGunShoot",
+    "LGunShootAir",
+    "LGunShootEmpty",
+    "LGunShootAirEmpty",
+    "FireFlowerShoot",
+    "FireFlowerShootAir",
+    "ItemScrew",
+    "ItemScrewAir",
+    "DamageScrew",
+    "DamageScrewAir",
+    "ItemScopeStart",
+    "ItemScopeRapid",
+    "ItemScopeFire",
+    "ItemScopeEnd",
+    "ItemScopeAirStart",
+    "ItemScopeAirRapid",
+    "ItemScopeAirFire",
+    "ItemScopeAirEnd",
+    "ItemScopeStartEmpty",
+    "ItemScopeRapidEmpty",
+    "ItemScopeFireEmpty",
+    "ItemScopeEndEmpty",
+    "ItemScopeAirStartEmpty",
+    "ItemScopeAirRapidEmpty",
+    "ItemScopeAirFireEmpty",
+    "ItemScopeAirEndEmpty",
+    "LiftWait",
+    "LiftWalk1",
+    "LiftWalk2",
+    "LiftTurn",
+    "GuardOn",
+    "Guard",
+    "GuardOff",
+    "GuardSetOff",
+    "GuardReflect",
+    "DownBoundU",
+    "DownWaitU",
+    "DownDamageU",
+    "DownStandU",
+    "DownAttackU",
+    "DownFowardU",
+    "DownBackU",
+    "DownSpotU",
+    "DownBoundD",
+    "DownWaitD",
+    "DownDamageD",
+    "DownStandD",
+    "DownAttackD",
+    "DownFowardD",
+    "DownBackD",
+    "DownSpotD",
+    "Passive",
+    "PassiveStandF",
+    "PassiveStandB",
+    "PassiveWall",
+    "PassiveWallJump",
+    "PassiveCeil",
+    "ShieldBreakFly",
+    "ShieldBreakFall",
+    "ShieldBreakDownU",
+    "ShieldBreakDownD",
+    "ShieldBreakStandU",
+    "ShieldBreakStandD",
+    "FuraFura",
+    "Catch",
+    "CatchPull",
+    "CatchDash",
+    "CatchDashPull",
+    "CatchWait",
+    "CatchAttack",
+    "CatchCut",
+    "ThrowF",
+    "ThrowB",
+    "ThrowHi",
+    "ThrowLw",
+    "CapturePulledHi",
+    "CaptureWaitHi",
+    "CaptureDamageHi",
+    "CapturePulledLw",
+    "CaptureWaitLw",
+    "CaptureDamageLw",
+    "CaptureCut",
+    "CaptureJump",
+    "CaptureNeck",
+    "CaptureFoot",
+    "EscapeF",
+    "EscapeB",
+    "Escape",
+    "EscapeAir",
+    "ReboundStop",
+    "Rebound",
+    "ThrownF",
+    "ThrownB",
+    "ThrownHi",
+    "ThrownLw",
+    "ThrownLwWomen",
+    "Pass",
+    "Ottotto",
+    "OttottoWait",
+    "FlyReflectWall",
+    "FlyReflectCeil",
+    "StopWall",
+    "StopCeil",
+    "MissFoot",
+    "CliffCatch",
+    "CliffWait",
+    "CliffClimbSlow",
+    "CliffClimbQuick",
+    "CliffAttackSlow",
+    "CliffAttackQuick",
+    "CliffEscapeSlow",
+    "CliffEscapeQuick",
+    "CliffJumpSlow1",
+    "CliffJumpSlow2",
+    "CliffJumpQuick1",
+    "CliffJumpQuick2",
+    "AppealR",
+    "AppealL",
+    "ShoulderedWait",
+    "ShoulderedWalkSlow",
+    "ShoulderedWalkMiddle",
+    "ShoulderedWalkFast",
+    "ShoulderedTurn",
+    "ThrownFF",
+    "ThrownFB",
+    "ThrownFHi",
+    "ThrownFLw",
+    "CaptureCaptain",
+    "CaptureYoshi",
+    "YoshiEgg",
+    "CaptureKoopa",
+    "CaptureDamageKoopa",
+    "CaptureWaitKoopa",
+    "ThrownKoopaF",
+    "ThrownKoopaB",
+    "CaptureKoopaAir",
+    "CaptureDamageKoopaAir",
+    "CaptureWaitKoopaAir",
+    "ThrownKoopaAirF",
+    "ThrownKoopaAirB",
+    "CaptureKirby",
+    "CaptureWaitKirby",
+    "ThrownKirbyStar",
+    "ThrownCopyStar",
+    "ThrownKirby",
+    "BarrelWait",
+    "Bury",
+    "BuryWait",
+    "BuryJump",
+    "DamageSong",
+    "DamageSongWait",
+    "DamageSongRv",
+    "DamageBind",
+    "CaptureMewtwo",
+    "CaptureMewtwoAir",
+    "ThrownMewtwo",
+    "ThrownMewtwoAir",
+    "WarpStarJump",
+    "WarpStarFall",
+    "HammerWait",
+    "HammerWalk",
+    "HammerTurn",
+    "HammerKneeBend",
+    "HammerFall",
+    "HammerJump",
+    "HammerLanding",
+    "KinokoGiantStart",
+    "KinokoGiantStartAir",
+    "KinokoGiantEnd",
+    "KinokoGiantEndAir",
+    "KinokoSmallStart",
+    "KinokoSmallStartAir",
+    "KinokoSmallEnd",
+    "KinokoSmallEndAir",
+    "Entry",
+    "EntryStart",
+    "EntryEnd",
+    "DamageIce",
+    "DamageIceJump",
+    "CaptureMasterhand",
+    "CapturedamageMasterhand",
+    "CapturewaitMasterhand",
+    "ThrownMasterhand",
+    "CaptureKirbyYoshi",
+    "KirbyYoshiEgg",
+    "CaptureLeadead",
+    "CaptureLikelike",
+    "DownReflect",
+    "CaptureCrazyhand",
+    "CapturedamageCrazyhand",
+    "CapturewaitCrazyhand",
+    "ThrownCrazyhand",
+    "BarrelCannonWait",
 };

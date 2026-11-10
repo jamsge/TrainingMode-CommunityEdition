@@ -136,12 +136,20 @@ void EventMenu_Update(GOBJ *gobj)
 
     bool pause_pressed = false;
     int pause_index = 0;
-    for (int i = 0; i < 4; i++) {
-        HSD_Pad *pad = PadGetMaster(i);
-        if (pad->down & HSD_BUTTON_START) {
-            pause_pressed = true;
-            pause_index = i;
-            break;
+
+    // Aitch: unfortunate necessity.
+    // We don't want events that skip the sss to immediately pause on enter,
+    // but the savestate system resets the game timer so the techchase event,
+    // which loads a savestate to the start of the scene, cannot unpause.
+    // So we detect if we are in the menu and allow the unpause to prevent a softlock.
+    if (event_vars->game_timer > 3 || menu_data->mode == MenuMode_Paused) {
+        for (int i = 0; i < 4; i++) {
+            HSD_Pad *pad = PadGetMaster(i);
+            if (pad->down & HSD_BUTTON_START) {
+                pause_pressed = true;
+                pause_index = i;
+                break;
+            }
         }
     }
 
@@ -187,6 +195,9 @@ void EventMenu_Update(GOBJ *gobj)
                     EventMenu_ChangeOptionVal(gobj, option, !option->val);
                     SFX_PlayCommon(option->val ? 2 : 0);
                 }
+                else if (option->kind == OPTKIND_FUNC) {
+                    EventMenu_RunFuncOption(gobj, option);
+                }
                 else if (option->kind == OPTKIND_STRING || option->kind == OPTKIND_INT) {
                     int val = (option->val + 1 - option->value_min) % option->value_num + option->value_min;
                     EventMenu_ChangeOptionVal(gobj, option, val);
@@ -229,6 +240,16 @@ void EventMenu_TextGX(GOBJ *gobj, int pass)
         Text_GX(gobj, pass);
 }
 
+void EventMenu_RunFuncOption(GOBJ *gobj, EventOption *func_option) {
+    // execute function option
+    if (!func_option->OnSelect)
+        assert("Missing menu function");
+    func_option->OnSelect(gobj);
+
+    EventMenu_UpdateText(gobj);
+    SFX_PlayCommon(1);
+}
+
 void EventMenu_MenuThink(GOBJ *gobj, EventMenu *curr_menu) {
     MenuData *menu_data = gobj->userdata;
 
@@ -265,6 +286,7 @@ void EventMenu_MenuThink(GOBJ *gobj, EventMenu *curr_menu) {
         // If cursor went too far down, scroll down to compensate
         if (cursor >= MENU_MAXOPTION - MENU_SCROLLOFF) {
             int max_scroll = curr_menu->option_num - MENU_MAXOPTION - scroll;
+            if (max_scroll < 0) max_scroll = 0;
             int want_scroll = cursor - MENU_MAXOPTION + MENU_SCROLLOFF + 1;
             int delta_scroll = min(want_scroll, max_scroll);
 
@@ -345,13 +367,7 @@ void EventMenu_MenuThink(GOBJ *gobj, EventMenu *curr_menu) {
         }
         else if (curr_option->kind == OPTKIND_FUNC)
         {
-            // execute function option
-            if (!curr_option->OnSelect)
-                assert("Missing menu function");
-            curr_option->OnSelect(gobj);
-
-            EventMenu_UpdateText(gobj);
-            SFX_PlayCommon(1);
+            EventMenu_RunFuncOption(gobj, curr_option);
         }
     }
 }
@@ -567,7 +583,13 @@ void EventMenu_UpdateText(GOBJ *gobj)
                 Text_SetText(menu_data->text_value, i, "Off");
             }
         }
-        else {
+        else if (
+            (option->kind == OPTKIND_INFO || option->kind == OPTKIND_FUNC)
+            && option->value_string
+        ) {
+            Text_SetText(menu_data->text_value, i, option->value_string);
+            JOBJ_ClearFlags(rowbox, JOBJ_HIDDEN);
+        } else {
             Text_SetText(menu_data->text_value, i, "");
             JOBJ_SetFlags(rowbox, JOBJ_HIDDEN);
         }

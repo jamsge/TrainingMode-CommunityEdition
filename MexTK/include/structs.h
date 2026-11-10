@@ -255,6 +255,7 @@ typedef struct MemcardWork MemcardWork;
 typedef struct MemcardUnk MemcardUnk;
 typedef struct MemcardSave MemcardSave;
 typedef struct MemcardInfo MemcardInfo;
+typedef struct MemcardState MemcardState;
 typedef struct SnapshotInfo SnapshotInfo;
 typedef struct SnapshotList SnapshotList;
 typedef struct MemSnapIconData MemSnapIconData;

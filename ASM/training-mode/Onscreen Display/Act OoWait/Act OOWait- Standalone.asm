@@ -6,6 +6,7 @@
     .set player, 30
     .set FramesSince, 28
     .set ASBeforeWait, 27
+    .set OSDText, 26
 
     backupall
 
@@ -40,10 +41,20 @@ WaitSearchLoop:
     b WaitSearchLoop
     
 WaitSearchExit_Landing:
+    bl AutocancelTextEnd
+    .string "Act OoAutocancel\nFrame: %d"
+    .align 2
+AutocancelTextEnd:
+    mflr OSDText
     li FramesSince, -3
     b WaitSearchExit
     
 WaitSearchExit_Wait:
+    bl WaitTextEnd
+    .string "Act OoWait\nFrame: %d"
+    .align 2
+WaitTextEnd:
+    mflr OSDText
     li FramesSince, 1
 
 WaitSearchExit:
@@ -117,13 +128,45 @@ NotTeching:
     b ComingFromWhitelist
 NotWavedash:
 
+    # Laser
+    cmpwi ASBeforeWait, 341
+    blt NotLaser
+    cmpwi ASBeforeWait, 346
+    bgt NotLaser
+    lwz r3, 0x4(playerdata)  # fighter id
+    cmpwi r3, Fox.Int
+    beq ComingFromWhitelist
+    cmpwi r3, Falco.Int
+    beq ComingFromWhitelist
+NotLaser:
+
+    # Needles
+    cmpwi ASBeforeWait, 341
+    blt NotNeedles
+    cmpwi ASBeforeWait, 348
+    bgt NotNeedles
+    lwz r3, 0x4(playerdata)  # fighter id
+    cmpwi r3, Sheik.Int
+    beq ComingFromWhitelist
+NotNeedles:
+
+    # FC Aerials
+    cmpwi ASBeforeWait, 344
+    blt NotFCAerial
+    cmpwi ASBeforeWait, 348
+    bgt NotFCAerial
+    lwz r3, 0x4(playerdata)  # fighter id
+    cmpwi r3, Peach.Int
+    beq ComingFromWhitelist
+NotFCAerial:
+
     cmpwi ASBeforeWait, ASID_AttackAirN
     blt NotAerial
     cmpwi ASBeforeWait, ASID_AttackAirLw
     bgt NotAerial
     b ComingFromWhitelist
-    
 NotAerial:
+
     b Exit
 
 ComingFromWhitelist:
@@ -146,8 +189,7 @@ StoreTextColor:
     li r3, 5                                    # Message Kind
     lbz r4, 0xC(playerdata)                     # Message Queue
     li r5, MSGCOLOR_WHITE
-    bl TechText
-    mflr r6
+    mr r6, OSDText
     mr r7, FramesSince
     Message_Display
 
@@ -159,17 +201,6 @@ ChangeColor:
     branchl r12, Text_ChangeTextColor
 
     b Exit
-
-###################
-## TEXT CONTENTS ##
-###################
-
-TechText:
-    blrl
-    .string "Act OoWait\nFrame: %d"
-    .align 2
-
-##############################
 
 Exit:
     restoreall

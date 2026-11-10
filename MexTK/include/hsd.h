@@ -356,6 +356,7 @@ void HSD_StateInitDirect(GXVtxFmt vtxfmt, int render_flags);
 void HSD_StateSetZMode(GXBool compare_enable, GXCompare func, GXBool update_enable);
 void HSD_StateSetNumChans(u8 nChans);
 void HSD_SetupChannel(void *unk);
+void HSD_SetupRenderMode(u32 params);
 void HSD_StateSetColorUpdate(GXBool update_enable); // This function enables or disables color-buffer updates when rendering into the Embedded Frame Buffer (EFB)
 void HSD_StateSetAlphaUpdate(GXBool update_enable); // This function enables or disables alpha-buffer updates when rendering into the Embedded Frame Buffer (EFB)
 void HSD_StateSetDstAlpha(GXBool enable, u8 alpha);
@@ -369,7 +370,7 @@ void HSD_StateSetDither();
 void HSD_StateSetLineWidth(u8 width, int tex_offsets);
 void HSD_StateSetNumTevStages(u8 stages);
 void HSD_StateSetNumTexGens(u8 nTexGens);
-void HSD_StateSetPointSize();
+void HSD_StateSetPointSize(u8 size, int unk);
 void HSD_StateSetZCompLoc(GXBool enable);
 void HSD_ClearVtxDesc();
 void HSD_VICopyXFBASync(int unk);

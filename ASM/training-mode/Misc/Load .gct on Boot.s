@@ -1,7 +1,7 @@
     # To be inserted at 80375384
     .include "../Globals.s"
 
-    .set GeckoCodehandler, 0x8040a5e4
+    .set GeckoCodehandler, 0x8032bc64
     .set HeaderSize, 32
 
     #########################
